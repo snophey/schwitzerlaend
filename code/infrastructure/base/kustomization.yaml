@@ -1,0 +1,9 @@
+resources:
+- app.yaml
+- ingress.yaml
+
+commonAnnotations:
+  gitCommit: ${GIT_COMMIT}
+
+commonLabels:
+  appName: ${PROJECT_NAME}

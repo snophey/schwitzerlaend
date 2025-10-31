@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: 16m
+  creationTimestamp: "2023-11-26T12:51:10Z"
+  generation: 1
+  name: app-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: ${PROJECT_NAME}-${ENVIRONMENT}.rovner.ch
+    http:
+      paths:
+      - backend:
+          service:
+            name: app
+            port:
+              name: http
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - ${PROJECT_NAME}-${ENVIRONMENT}.rovner.ch
+    secretName: ${PROJECT_NAME}-${ENVIRONMENT}-tls

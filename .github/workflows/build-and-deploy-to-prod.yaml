@@ -1,0 +1,82 @@
+name: Build image and deploy to prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  attestations: write
+  id-token: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ENVIRONMENT: ${{ vars.ENV_NAME }}
+  IMAGE_NAME: ${{ github.repository }}
+  # Kubernetes
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+  K8S_SA_TOKEN: ${{ secrets.K8S_SA_TOKEN }}
+  K8S_CA_CRT: ${{ vars.K8S_CA_CRT }}
+  K8S_SERVER: ${{ secrets.K8S_SERVER }}
+
+jobs:
+  main:
+    environment:
+      name: prod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Cache node_modules
+      - uses: actions/setup-node@v4
+        name: Setup Node.js
+        with:
+          node-version-file: 'code/.nvmrc'
+          cache: 'npm'
+      
+      - uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        name: Log in to GitHub Container Registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: code/
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: code/Dockerfile
+      
+      # Only for public repositories:
+      #- name: Generate artifact attestation
+      #  uses: actions/attest-build-provenance@v1
+      #  with:
+      #    subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+      #    subject-digest: ${{ steps.push.outputs.digest }}
+      #    push-to-registry: true
+      
+      - name: Install Kubectl
+        uses: Azure/setup-kubectl@v3
+      
+      - name: Deploy
+        working-directory: ./code/infrastructure
+        run: |
+            echo -n $K8S_CA_CRT | base64 -d > $HOME/ca.crt
+            echo "TYPESENSE_API_KEY=${{ secrets.TYPESENSE_API_KEY }}" > base/typesense.env
+            export APP_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+            export GIT_COMMIT=${{ github.sha }}
+            kubectl kustomize "./${{ env.ENVIRONMENT }}" | envsubst > manifest.yaml
+            kubectl --token=$K8S_SA_TOKEN --server=$K8S_SERVER --certificate-authority=$HOME/ca.crt apply -f manifest.yaml
