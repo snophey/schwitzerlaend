@@ -1,3 +1,5 @@
+import "@mantine/core/styles.css";
+
 import {
   isRouteErrorResponse,
   Links,
@@ -7,6 +9,11 @@ import {
   ScrollRestoration,
 } from "react-router";
 
+import {
+  ColorSchemeScript,
+  MantineProvider,
+  mantineHtmlProps,
+} from "@mantine/core";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -25,15 +32,16 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" {...mantineHtmlProps}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <ColorSchemeScript />
         <Meta />
         <Links />
       </head>
       <body>
-        {children}
+        <MantineProvider>{children}</MantineProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
