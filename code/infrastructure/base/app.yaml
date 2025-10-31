@@ -42,19 +42,6 @@ spec:
         - name: app
           # NOTE : you can update to the latest release
           image: ${APP_IMAGE}
-          env:
-            - name: FITBIT_CLIENT_ID
-              valueFrom:
-                secretKeyRef:
-                  name: fitbit-oauth
-                  key: FITBIT_CLIENT_ID
-            - name: FITBIT_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: fitbit-oauth
-                  key: FITBIT_CLIENT_SECRET
-            - name: DB_PATH
-              value: /usr/share/app/data
           ports:
             - containerPort: 3333
               name: http
