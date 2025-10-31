@@ -43,7 +43,7 @@ spec:
           # NOTE : you can update to the latest release
           image: ${APP_IMAGE}
           ports:
-            - containerPort: 3333
+            - containerPort: 3000
               name: http
           # NOTE: you can increase these resources
           resources:
