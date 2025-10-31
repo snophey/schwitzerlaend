@@ -1,4 +1,4 @@
-name: Build image and deploy to prod
+<name: Build image and deploy to prod
 
 on:
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 1
       
-      - uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - uses: docker/frontend/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         name: Log in to GitHub Container Registry
         with:
           registry: ${{ env.REGISTRY }}
