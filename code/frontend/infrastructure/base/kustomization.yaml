@@ -7,3 +7,5 @@ commonAnnotations:
 
 commonLabels:
   appName: ${PROJECT_NAME}
+
+namePrefix: fe-
