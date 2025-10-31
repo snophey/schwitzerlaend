@@ -1,9 +1,12 @@
-name: Build image and deploy to prod
+name: "FE: Build image and deploy to prod"
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'code/frontend/**'
+      - '.github/workflows/fe-build-and-deploy-to-prod.yaml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +19,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   ENVIRONMENT: ${{ vars.ENV_NAME }}
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}-fe
   # Kubernetes
   PROJECT_NAME: ${{ vars.PROJECT_NAME }}
   K8S_SA_TOKEN: ${{ secrets.K8S_SA_TOKEN }}
@@ -55,7 +58,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           file: code/frontend/Dockerfile
-      
+
       # Only for public repositories:
       #- name: Generate artifact attestation
       #  uses: actions/attest-build-provenance@v1
