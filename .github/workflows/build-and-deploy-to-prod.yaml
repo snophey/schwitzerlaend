@@ -1,6 +1,9 @@
 name: Build image and deploy to prod
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -30,7 +33,7 @@ jobs:
         with:
           fetch-depth: 1
       
-      - uses: docker/frontend/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         name: Log in to GitHub Container Registry
         with:
           registry: ${{ env.REGISTRY }}
@@ -51,7 +54,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          file: code/Dockerfile
+          file: code/frontend/Dockerfile
       
       # Only for public repositories:
       #- name: Generate artifact attestation
