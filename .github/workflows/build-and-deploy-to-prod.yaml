@@ -1,4 +1,4 @@
-<name: Build image and deploy to prod
+name: Build image and deploy to prod
 
 on:
   workflow_dispatch:
