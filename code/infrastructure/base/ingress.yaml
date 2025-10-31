@@ -35,7 +35,7 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: 16m
   creationTimestamp: "2023-11-26T12:51:10Z"
   generation: 1
-  name: app-ingress
+  name: test-app-ingress
 spec:
   ingressClassName: nginx
   rules:
