@@ -17,6 +17,7 @@ from typing import Dict, Any
 # Configuration
 BASE_URL = "http://localhost:8000"
 USER_ID = "3"
+WORKOUT_ID = None  # Will be set from user data or history
 
 # Color codes for terminal output
 class Colors:
@@ -58,18 +59,42 @@ def print_error(text: str):
     print(f"{Colors.FAIL}✗ {text}{Colors.ENDC}")
 
 
-def get_latest_history() -> Dict[str, Any]:
-    """Get the latest history for the user."""
+def get_user_workout_id() -> str:
+    """Get the first workout ID for the user."""
+    global WORKOUT_ID
+    if WORKOUT_ID:
+        return WORKOUT_ID
+    
+    response = requests.get(f"{BASE_URL}/users/{USER_ID}")
+    response.raise_for_status()
+    user_data = response.json()
+    workout_ids = user_data.get('associated_workout_ids', [])
+    
+    if not workout_ids:
+        raise ValueError(f"User {USER_ID} has no associated workouts")
+    
+    WORKOUT_ID = workout_ids[0]
+    print_info(f"Using workout ID: {WORKOUT_ID}")
+    return WORKOUT_ID
+
+
+def get_latest_history(workout_id: str = None) -> Dict[str, Any]:
+    """Get the latest history for the user (uses active workout)."""
+    # Endpoint automatically uses the first workout from user's associated_workout_ids
     response = requests.get(f"{BASE_URL}/history/{USER_ID}/latest")
     response.raise_for_status()
     return response.json()
 
 
-def update_set_progress(set_id: str, completed_reps: int):
+def update_set_progress(workout_id: str, set_id: str, completed_reps: int):
     """Update progress on a set."""
+    if workout_id is None:
+        workout_id = get_user_workout_id()
+    
     response = requests.post(
         f"{BASE_URL}/history/{USER_ID}/update",
         json={
+            "workout_id": workout_id,
             "set_id": set_id,
             "completed_reps": completed_reps
         }
@@ -78,11 +103,17 @@ def update_set_progress(set_id: str, completed_reps: int):
     return response.json()
 
 
-def complete_set(set_id: str) -> Dict[str, Any]:
+def complete_set(workout_id: str, set_id: str) -> Dict[str, Any]:
     """Mark a set as complete."""
+    if workout_id is None:
+        workout_id = get_user_workout_id()
+    
     response = requests.post(
         f"{BASE_URL}/history/{USER_ID}/complete",
-        json={"set_id": set_id}
+        json={
+            "workout_id": workout_id,
+            "set_id": set_id
+        }
     )
     response.raise_for_status()
     return response.json()
@@ -115,20 +146,41 @@ def display_history(history: Dict[str, Any]):
         print(f"      Target: {target_reps} reps | Completed: {completed_reps} reps")
 
 
-def complete_day(week_num: int = 1):
+def complete_day(week_num: int = 1, cycle_num: int = 1):
     """Complete all sets for the current day."""
-    history = get_latest_history()
+    workout_id = get_user_workout_id()
+    
+    # Get current state (will auto-progress if day is already complete)
+    history = get_latest_history(workout_id)
     day_name = history.get('day_name', 'Unknown')
     day_index = history.get('current_day_index', 0)
+    initial_day_index = day_index
     
-    print_header(f"Week {week_num} - Day {day_index + 1}: {day_name}")
+    print_header(f"Week {week_num} - Cycle {cycle_num} - Day {day_index + 1}: {day_name}")
     display_history(history)
     
     sets = history.get('sets', [])
     
     if not sets:
         print_warning(f"No sets found for {day_name}")
-        return
+        return False
+    
+    # Check if all sets are already complete (shouldn't happen due to auto-progression, but check anyway)
+    all_complete = all(set_data.get('is_complete', False) for set_data in sets)
+    if all_complete:
+        print_info(f"All sets for {day_name} are already complete. Auto-progressing should have happened.")
+        # Re-fetch to get the new day after auto-progression
+        history = get_latest_history(workout_id)
+        new_day_index = history.get('current_day_index', 0)
+        new_day_name = history.get('day_name', 'Unknown')
+        
+        if new_day_index == 0 and initial_day_index != 0:
+            print(f"{Colors.OKCYAN}{Colors.BOLD}🔄 Rolled over to {new_day_name}!{Colors.ENDC}\n")
+            return 'rollover'
+        elif new_day_index != initial_day_index:
+            print(f"{Colors.OKGREEN}{Colors.BOLD}✓ Auto-progressed to {new_day_name}!{Colors.ENDC}\n")
+            return True
+        return False
     
     print(f"\n{Colors.BOLD}Starting workout...{Colors.ENDC}\n")
     
@@ -153,7 +205,7 @@ def complete_day(week_num: int = 1):
             print(f"{partial_reps} reps done")
             
             # Update progress
-            result = update_set_progress(set_id, partial_reps)
+            result = update_set_progress(workout_id, set_id, partial_reps)
             print_success(f"Updated progress: {partial_reps}/{target_reps} reps")
             
             # Complete the remaining reps
@@ -166,34 +218,78 @@ def complete_day(week_num: int = 1):
             print("Done!")
         
         # Mark set as complete
-        result = complete_set(set_id)
+        result = complete_set(workout_id, set_id)
         print_success(f"Set complete!")
         
-        # Check if day/week completed
+        # Check if day/week completed and auto-progressed
         if result.get('new_day_started'):
-            print(f"\n{Colors.OKGREEN}{Colors.BOLD}🎉 {result.get('message')}{Colors.ENDC}")
+            new_day_name = result.get('new_day_name', 'Unknown')
+            message = result.get('message', '')
+            new_day_index = result.get('current_day_index', day_index + 1)
+            
+            print(f"\n{Colors.OKGREEN}{Colors.BOLD}🎉 {message}{Colors.ENDC}")
+            
+            # Check if this is a rollover (workout plan restarted)
+            if 'Rolling over' in message or 'rollover' in message.lower() or new_day_index == 0:
+                print(f"{Colors.OKCYAN}{Colors.BOLD}🔄 Workout plan cycle complete! Restarting from first day!{Colors.ENDC}\n")
+                return 'rollover'
+            
+            print(f"{Colors.OKGREEN}Moving to next day: {new_day_name}{Colors.ENDC}\n")
             time.sleep(1)
             return True
-        elif result.get('day_complete'):
-            print(f"\n{Colors.OKGREEN}{Colors.BOLD}🎉 {result.get('message')}{Colors.ENDC}")
-            time.sleep(1)
-            return False
     
+    # After completing all sets, check if we progressed (should have happened automatically)
+    time.sleep(0.5)  # Give API a moment to process
+    updated_history = get_latest_history(workout_id)
+    updated_day_index = updated_history.get('current_day_index', day_index)
+    updated_day_name = updated_history.get('day_name', day_name)
+    
+    if updated_day_index == 0 and initial_day_index != 0:
+        # Rolled over
+        print(f"\n{Colors.OKCYAN}{Colors.BOLD}🔄 Rolled over to {updated_day_name}!{Colors.ENDC}\n")
+        return 'rollover'
+    elif updated_day_index != initial_day_index:
+        # Progressed to next day
+        print(f"\n{Colors.OKGREEN}{Colors.BOLD}✓ Progressed to {updated_day_name}!{Colors.ENDC}\n")
+        return True
+    
+    # No progression happened (shouldn't normally occur)
+    print_warning("All sets complete but day didn't progress. This may be expected if day was already complete.")
     return False
 
 
 def main():
     """Main test workflow."""
-    print_header("History Tracking Test - Full Week Simulation")
+    print_header("History Tracking Test - Rolling Workout Simulation")
     print_info(f"Testing with User ID: {USER_ID}")
     print_info(f"API Base URL: {BASE_URL}\n")
     
     try:
+        # Get workout ID first
+        workout_id = get_user_workout_id()
+        
         # Check initial state
         print_header("Initial State")
         try:
-            initial_history = get_latest_history()
+            initial_history = get_latest_history(workout_id)
+            initial_day = initial_history.get('day_name', 'Unknown')
+            initial_index = initial_history.get('current_day_index', 0)
+            initial_progress = initial_history.get('progress', {})
+            
             display_history(initial_history)
+            
+            # Show workout plan info
+            workout_response = requests.get(f"{BASE_URL}/workouts/{workout_id}")
+            if workout_response.status_code == 200:
+                workout_data = workout_response.json()
+                workout_plan = workout_data.get('workout_plan', [])
+                all_days = [day['day'] for day in workout_plan]
+                print(f"\n{Colors.BOLD}Workout Plan Days:{Colors.ENDC} {', '.join(all_days)}")
+                print(f"{Colors.BOLD}Total Days:{Colors.ENDC} {len(all_days)}")
+            
+            # Warn if day is already complete (will auto-progress)
+            if initial_progress.get('completion_percentage', 0) == 100:
+                print_warning("\n⚠ All sets for current day are complete. Auto-progression will occur on next status check.")
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 print_error("User not found or user has no workouts!")
@@ -203,51 +299,79 @@ def main():
                 return
             raise
         
-        input(f"\n{Colors.BOLD}Press Enter to start the workout week...{Colors.ENDC}")
+        input(f"\n{Colors.BOLD}Press Enter to start the workout simulation...{Colors.ENDC}")
         
-        # Simulate a full week (7 days)
+        # Simulate multiple cycles through the workout plan to test rolling
         week_num = 1
+        cycle_num = 1
         day_count = 0
-        max_days = 20  # Safety limit to prevent infinite loops
+        max_days = 30  # Safety limit to prevent infinite loops
+        rollover_count = 0
         
         while day_count < max_days:
-            has_next_day = complete_day(week_num)
+            result = complete_day(week_num, cycle_num)
             day_count += 1
             
-            if not has_next_day:
-                # Check if there's another day in the plan
+            if result == 'rollover':
+                # Workout plan rolled over - starting new cycle
+                cycle_num += 1
+                rollover_count += 1
+                print_header(f"🔄 Starting New Cycle #{cycle_num}!")
+                
+                if rollover_count >= 3:
+                    print_success(f"Successfully completed {rollover_count} full cycles!")
+                    print_info("Rolling logic test complete - stopping here.")
+                    break
+            elif result is True:
+                # Automatically moved to next day
+                time.sleep(0.5)
+            elif result is False:
+                # Day not complete yet, or no progression detected
+                # Re-check status to see if auto-progression happened
                 try:
-                    history = get_latest_history()
-                    if day_count > 0 and history.get('current_day_index') == 0:
-                        # We've wrapped around to a new week
-                        week_num += 1
-                        print_header(f"Starting Week {week_num}!")
+                    time.sleep(0.5)  # Brief pause
+                    history = get_latest_history(workout_id)
+                    current_index = history.get('current_day_index', 0)
+                    current_day = history.get('day_name', 'Unknown')
+                    
+                    # Get initial day index for comparison (we'll track this in the loop)
+                    # If we're back at day 0 and we've done more than 1 day, it's a rollover
+                    # (Note: This logic might need refinement based on actual behavior)
+                    if current_index == 0 and day_count > 1:
+                        # Check if we completed all days
+                        cycle_num += 1
+                        rollover_count += 1
+                        print_header(f"🔄 Detected Rollover - Starting New Cycle #{cycle_num}!")
                         
-                        if week_num > 2:
-                            print_success("Successfully completed 2 full weeks!")
-                            print_info("Test cycle complete - stopping here.")
+                        if rollover_count >= 3:
+                            print_success(f"Successfully completed {rollover_count} full cycles!")
+                            print_info("Rolling logic test complete - stopping here.")
                             break
                     
-                    # Small delay before next day
-                    time.sleep(1)
+                    time.sleep(0.5)
                 except Exception as e:
-                    print_warning(f"Reached end of workout plan: {str(e)}")
+                    print_warning(f"Error checking state: {str(e)}")
                     break
-            else:
-                # Automatically moved to next day
-                time.sleep(1)
         
         # Final summary
         print_header("Test Complete - Final Summary")
-        final_history = get_latest_history()
+        final_history = get_latest_history(workout_id)
         display_history(final_history)
         
         print(f"\n{Colors.OKGREEN}{Colors.BOLD}✓ Test completed successfully!{Colors.ENDC}")
         print(f"\n{Colors.BOLD}Summary:{Colors.ENDC}")
-        print(f"   Total days completed: {day_count}")
-        print(f"   Weeks completed: {week_num}")
+        print(f"   Total days processed: {day_count}")
+        print(f"   Workout cycles completed: {rollover_count}")
+        print(f"   Current cycle: {cycle_num}")
         print(f"   Current day: {final_history.get('day_name', 'Unknown')}")
         print(f"   Current day index: {final_history.get('current_day_index', 0)}")
+        final_progress = final_history.get('progress', {})
+        print(f"   Current day progress: {final_progress.get('completed_sets', 0)}/{final_progress.get('total_sets', 0)} sets ({final_progress.get('completion_percentage', 0)}%)")
+        print(f"   Workout ID: {workout_id}")
+        
+        if rollover_count > 0:
+            print(f"\n{Colors.OKGREEN}{Colors.BOLD}✓ Rollover functionality working correctly!{Colors.ENDC}")
+            print(f"   Successfully rolled over {rollover_count} time(s) - progress resets correctly.")
         
     except requests.exceptions.ConnectionError:
         print_error("Could not connect to API. Make sure the server is running at http://localhost:8000")

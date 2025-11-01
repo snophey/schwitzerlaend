@@ -1,462 +1,589 @@
-"""History-related API endpoints for tracking workout completion progress."""
+"""History and progress tracking API endpoints."""
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
-from models import UpdateSetProgressRequest, CompleteSetRequest
-from database import get_database
-from bson import ObjectId
 from datetime import datetime
+from models import UpdateSetProgressRequest, CompleteSetRequest, UpdateStatusRequest
+from database import get_database
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/history", tags=["History"])
 
 
-@router.get("/health")
-async def health_check():
-    """Health check endpoint to verify history router is loaded."""
-    return {"status": "ok", "router": "history"}
-
-
-def create_initial_history_entry(user_id: str, workout_id: str, db):
-    """
-    Create the initial history entry for a user's workout.
-    Derives structure from sets (code/backend/routers/sets.py) and exercises (code/backend/routers/exercises.py).
-    """
-    logger.info(f"Creating initial history entry for user {user_id}, workout {workout_id}")
+def get_active_workout_id(user_id: str) -> str:
+    """Get the active workout ID for a user (first in associated_workout_ids)."""
+    db = get_database()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database connection not available")
     
+    users_collection = db["users"]
+    user_doc = users_collection.find_one({'_id': user_id})
+    
+    if not user_doc:
+        raise HTTPException(status_code=404, detail=f"User with user_id '{user_id}' not found")
+    
+    associated_workout_ids = user_doc.get('associated_workout_ids', [])
+    if not associated_workout_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"User '{user_id}' has no associated workouts"
+        )
+    
+    # Return the first workout as the active one
+    return associated_workout_ids[0]
+
+
+def get_workout_structure(workout_id: str) -> Dict[str, Any]:
+    """Get workout structure from database."""
+    db = get_database()
     workouts_collection = db["workouts"]
     workout_doc = workouts_collection.find_one({'_id': workout_id})
     
     if not workout_doc:
-        logger.error(f"Workout '{workout_id}' not found")
-        raise HTTPException(status_code=404, detail=f"Workout '{workout_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Workout with workout_id '{workout_id}' not found")
     
-    workout_plan = workout_doc.get('workout_plan', [])
-    if not workout_plan:
-        logger.error(f"Workout '{workout_id}' has empty workout_plan")
-        raise HTTPException(status_code=400, detail="Workout plan is empty")
-    
-    # Start with the first day
-    first_day = workout_plan[0]
-    day_name = first_day.get('day')
-    set_ids = first_day.get('exercises_ids', [])
-    
-    logger.info(f"First day is '{day_name}' with {len(set_ids)} sets: {set_ids}")
-    
-    # Get set details to create progress tracking
-    # This derives from the sets structure as defined in code/backend/routers/sets.py
+    return workout_doc.get('workout_plan', [])
+
+
+def get_set_details(set_id: str) -> Optional[Dict[str, Any]]:
+    """Get set details from database."""
+    db = get_database()
     sets_collection = db["sets"]
-    exercises_collection = db["exercises"]
-    sets_progress = []
+    set_doc = sets_collection.find_one({'_id': set_id})
     
-    for set_id in set_ids:
-        set_doc = sets_collection.find_one({'_id': set_id})
-        if set_doc:
-            # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
-            exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
-            
-            # Fetch exercise details from code/backend/routers/exercises.py structure
-            exercise_doc = None
-            if exercise_id:
-                exercise_doc = exercises_collection.find_one({'_id': exercise_id})
-                if not exercise_doc:
-                    logger.warning(f"Exercise '{exercise_id}' referenced by set '{set_id}' not found")
-            else:
-                logger.warning(f"Set '{set_id}' has no exercise_id")
-            
-            # Create progress tracking entry with all relevant data from set and exercise
-            set_progress = {
-                'set_id': set_id,
-                'set_name': set_doc.get('name'),
-                'exercise_id': exercise_id,
-                'exercise_name': exercise_doc.get('name') if exercise_doc else None,
-                'target_reps': set_doc.get('reps'),
-                'completed_reps': 0,
-                'target_weight': set_doc.get('weight'),
-                'target_duration_sec': set_doc.get('duration_sec'),
-                'is_complete': False,
-                'completed_at': None
+    if not set_doc:
+        return None
+    
+    # Get exercise details
+    exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
+    exercise_info = None
+    if exercise_id:
+        exercises_collection = db["exercises"]
+        exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+        if exercise_doc:
+            exercise_info = {
+                'id': exercise_doc.get('_id'),
+                'name': exercise_doc.get('name'),
+                'category': exercise_doc.get('category'),
+                'equipment': exercise_doc.get('equipment'),
+                'instructions': exercise_doc.get('instructions', [])
             }
-            sets_progress.append(set_progress)
-            logger.info(f"Added set '{set_id}' ({set_doc.get('name')}) with exercise '{exercise_id}' ({exercise_doc.get('name') if exercise_doc else 'N/A'})")
-        else:
-            logger.warning(f"Set '{set_id}' not found in sets collection")
     
-    if not sets_progress:
-        logger.error(f"No valid sets found for workout '{workout_id}', day '{day_name}'")
-        raise HTTPException(status_code=400, detail=f"No valid sets found for first day of workout")
+    return {
+        'set_id': set_id,
+        'name': set_doc.get('name'),
+        'exercise_id': exercise_id,
+        'reps': set_doc.get('reps'),
+        'weight': set_doc.get('weight'),
+        'duration_sec': set_doc.get('duration_sec'),
+        'exercise': exercise_info
+    }
+
+
+def get_or_create_progress(user_id: str, workout_id: str) -> Dict[str, Any]:
+    """Get or create progress tracking document for a user and workout."""
+    db = get_database()
+    progress_collection = db["user_workout_progress"]
+    progress_id = f"{user_id}_{workout_id}"
     
-    history_id = str(ObjectId())
-    now = datetime.utcnow().isoformat() + 'Z'
+    progress_doc = progress_collection.find_one({'_id': progress_id})
     
-    history_doc = {
-        '_id': history_id,
+    if not progress_doc:
+        # Create new progress document
+        progress_doc = {
+            '_id': progress_id,
+            'user_id': user_id,
+            'workout_id': workout_id,
+            'current_day_index': 0,
+            'completed_sets': [],
+            'set_progress': {},
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+        progress_collection.insert_one(progress_doc)
+        logger.info(f"Created new progress document for user '{user_id}' and workout '{workout_id}'")
+    
+    return progress_doc
+
+
+def build_status_response(user_id: str, workout_id: str, progress_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Build status response with current day and sets."""
+    workout_plan = get_workout_structure(workout_id)
+    
+    if not workout_plan:
+        raise HTTPException(status_code=404, detail=f"Workout plan is empty for workout '{workout_id}'")
+    
+    current_day_index = progress_doc.get('current_day_index', 0)
+    
+    # Handle rollover: if day index exceeds plan length, reset to 0
+    if current_day_index >= len(workout_plan):
+        current_day_index = 0
+        # Update progress document
+        db = get_database()
+        progress_collection = db["user_workout_progress"]
+        progress_id = f"{user_id}_{workout_id}"
+        progress_collection.update_one(
+            {'_id': progress_id},
+            {'$set': {'current_day_index': 0}}
+        )
+        logger.info(f"Rolled over to day 0 for user '{user_id}' and workout '{workout_id}'")
+    
+    current_day_plan = workout_plan[current_day_index]
+    day_name = current_day_plan.get('day', 'Unknown')
+    set_ids = current_day_plan.get('exercises_ids', [])
+    
+    completed_sets = set(progress_doc.get('completed_sets', []))
+    set_progress = progress_doc.get('set_progress', {})
+    
+    # Build sets list with status
+    sets_list = []
+    for set_id in set_ids:
+        set_details = get_set_details(set_id)
+        if not set_details:
+            continue
+        
+        is_complete = set_id in completed_sets
+        progress_data = set_progress.get(set_id, {})
+        
+        sets_list.append({
+            'set_id': set_id,
+            'set_name': set_details.get('name'),
+            'exercise_id': set_details.get('exercise_id'),
+            'exercise_name': set_details.get('exercise', {}).get('name') if set_details.get('exercise') else 'Unknown Exercise',
+            'target_reps': set_details.get('reps'),
+            'target_weight': set_details.get('weight'),
+            'target_duration_sec': set_details.get('duration_sec'),
+            'completed_reps': progress_data.get('completed_reps'),
+            'completed_duration_sec': progress_data.get('completed_duration_sec'),
+            'is_complete': is_complete,
+            'completed_at': progress_data.get('completed_at'),
+            'exercise': set_details.get('exercise')
+        })
+    
+    # Calculate progress
+    total_sets = len(sets_list)
+    completed_count = sum(1 for s in sets_list if s['is_complete'])
+    completion_percentage = int((completed_count / total_sets * 100)) if total_sets > 0 else 0
+    
+    return {
         'user_id': user_id,
         'workout_id': workout_id,
-        'current_day_index': 0,
         'day_name': day_name,
-        'sets_progress': sets_progress,
-        'created_at': now,
-        'updated_at': now
+        'current_day_index': current_day_index,
+        'sets': sets_list,
+        'progress': {
+            'completed_sets': completed_count,
+            'total_sets': total_sets,
+            'completion_percentage': completion_percentage
+        }
     }
+
+
+def check_and_progress_day_if_needed(user_id: str, workout_id: str, progress_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Check if current day is complete and progress if needed. Returns updated progress doc."""
+    db = get_database()
+    workout_plan = get_workout_structure(workout_id)
     
-    history_collection = db["history"]
-    result = history_collection.insert_one(history_doc)
+    if not workout_plan:
+        return progress_doc
     
-    if result.inserted_id:
-        logger.info(f"Successfully created history entry {history_id} for user {user_id}, day '{day_name}' with {len(sets_progress)} sets")
-    else:
-        logger.error(f"Failed to insert history document for user {user_id}")
-        raise HTTPException(status_code=500, detail="Failed to create history entry")
+    current_day_index = progress_doc.get('current_day_index', 0)
     
-    return history_doc
+    # Handle rollover if needed
+    if current_day_index >= len(workout_plan):
+        current_day_index = 0
+    
+    current_day_plan = workout_plan[current_day_index]
+    set_ids_for_day = current_day_plan.get('exercises_ids', [])
+    
+    completed_sets = set(progress_doc.get('completed_sets', []))
+    completed_sets_in_day = [s for s in set_ids_for_day if s in completed_sets]
+    all_sets_complete = len(completed_sets_in_day) == len(set_ids_for_day) and len(set_ids_for_day) > 0
+    
+    if all_sets_complete:
+        # Move to next day
+        next_day_index = current_day_index + 1
+        progress_id = f"{user_id}_{workout_id}"
+        progress_collection = db["user_workout_progress"]
+        
+        # Check if we need to roll over
+        if next_day_index >= len(workout_plan):
+            next_day_index = 0
+            # Clear sets for the new day (day 0)
+            new_day_plan = workout_plan[next_day_index]
+            new_day_set_ids = set(new_day_plan.get('exercises_ids', []))
+            completed_sets = completed_sets - new_day_set_ids
+            logger.info(f"Auto-progressing: Day '{current_day_plan.get('day')}' complete, rolling over to '{new_day_plan.get('day')}'")
+        else:
+            # Clear sets for the current day
+            current_day_set_ids = set(set_ids_for_day)
+            completed_sets = completed_sets - current_day_set_ids
+            next_day_name = workout_plan[next_day_index].get('day', 'Unknown')
+            logger.info(f"Auto-progressing: Day '{current_day_plan.get('day')}' complete, moving to '{next_day_name}'")
+        
+        # Update database
+        progress_collection.update_one(
+            {'_id': progress_id},
+            {
+                '$set': {
+                    'completed_sets': list(completed_sets),
+                    'current_day_index': next_day_index,
+                    'updated_at': datetime.utcnow().isoformat()
+                }
+            }
+        )
+        
+        # Refresh progress doc
+        progress_doc = progress_collection.find_one({'_id': progress_id})
+        if not progress_doc:
+            progress_doc = get_or_create_progress(user_id, workout_id)
+    
+    return progress_doc
+
+
+@router.get("/{user_id}/status", response_model=Dict[str, Any])
+async def get_status(user_id: str):
+    """
+    Get current workout status for a user.
+    
+    Uses the first workout in the user's associated_workout_ids as the active workout.
+    
+    Returns:
+    - Current day information
+    - List of sets with completion status
+    - Overall progress
+    """
+    logger.info(f"GET /history/{user_id}/status endpoint called")
+    
+    try:
+        workout_id = get_active_workout_id(user_id)
+        progress_doc = get_or_create_progress(user_id, workout_id)
+        
+        # Check if day should auto-progress
+        progress_doc = check_and_progress_day_if_needed(user_id, workout_id, progress_doc)
+        
+        status = build_status_response(user_id, workout_id, progress_doc)
+        
+        logger.info(f"Retrieved status for user '{user_id}' - Day: {status['day_name']}, Progress: {status['progress']['completion_percentage']}%")
+        return status
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting status for user '{user_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
 
 
 @router.get("/{user_id}/latest", response_model=Dict[str, Any])
 async def get_latest_history(user_id: str):
     """
-    Get the latest workout history for a user.
+    Get latest history for a user.
     
-    - **user_id**: ID of the user
-    
-    Returns the current day's workout progress including all sets and their completion status.
-    If no history exists, creates an initial history entry from the user's first workout.
+    Uses the first workout in the user's associated_workout_ids as the active workout.
+    This endpoint is for compatibility with test scripts.
     """
     logger.info(f"GET /history/{user_id}/latest endpoint called")
     
-    db = get_database()
-    if db is None:
-        logger.error("Database connection is None - cannot get history")
-        raise HTTPException(status_code=500, detail="Database connection not available")
-    
     try:
-        history_collection = db["history"]
+        workout_id = get_active_workout_id(user_id)
+        progress_doc = get_or_create_progress(user_id, workout_id)
         
-        # Find the most recent history entry for this user
-        logger.info(f"Searching for history for user {user_id}")
-        history_doc = history_collection.find_one(
-            {'user_id': user_id},
-            sort=[('updated_at', -1)]
-        )
+        # Check if day should auto-progress
+        progress_doc = check_and_progress_day_if_needed(user_id, workout_id, progress_doc)
         
-        # If no history exists, create initial entry
-        if not history_doc:
-            logger.info(f"No history found for user {user_id}, creating initial entry")
-            
-            # Get user's first workout
-            users_collection = db["users"]
-            user_doc = users_collection.find_one({'_id': user_id})
-            
-            if not user_doc:
-                logger.error(f"User '{user_id}' not found in database")
-                raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
-            
-            logger.info(f"Found user {user_id}: {user_doc}")
-            
-            workout_ids = user_doc.get('associated_workout_ids', [])
-            if not workout_ids:
-                logger.error(f"User '{user_id}' has no associated workouts")
-                raise HTTPException(status_code=404, detail=f"No workouts found for user '{user_id}'")
-            
-            logger.info(f"User has workout IDs: {workout_ids}")
-            
-            # Create initial history from first workout
-            logger.info(f"Creating initial history for user {user_id} with workout {workout_ids[0]}")
-            history_doc = create_initial_history_entry(user_id, workout_ids[0], db)
-            logger.info(f"Successfully created history: {history_doc.get('_id')}")
+        status = build_status_response(user_id, workout_id, progress_doc)
         
-        # Enrich the response with set and exercise details
-        sets_collection = db["sets"]
-        exercises_collection = db["exercises"]
-        
-        enriched_sets = []
-        for set_progress in history_doc.get('sets_progress', []):
-            set_id = set_progress.get('set_id')
-            set_doc = sets_collection.find_one({'_id': set_id})
-            
-            if set_doc:
-                exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
-                exercise_doc = exercises_collection.find_one({'_id': exercise_id}) if exercise_id else None
-                
-                enriched_set = {
-                    **set_progress,
-                    'set_name': set_doc.get('name'),
-                    'exercise_id': exercise_id,
-                    'exercise_name': exercise_doc.get('name') if exercise_doc else None,
-                    'exercise_details': {
-                        'category': exercise_doc.get('category'),
-                        'equipment': exercise_doc.get('equipment'),
-                        'primaryMuscles': exercise_doc.get('primaryMuscles'),
-                        'instructions': exercise_doc.get('instructions')
-                    } if exercise_doc else None
-                }
-                enriched_sets.append(enriched_set)
-        
-        # Calculate progress statistics
-        total_sets = len(enriched_sets)
-        completed_sets = sum(1 for s in enriched_sets if s.get('is_complete'))
-        
-        response = {
-            'history_id': history_doc.get('_id'),
-            'user_id': history_doc.get('user_id'),
-            'workout_id': history_doc.get('workout_id'),
-            'current_day_index': history_doc.get('current_day_index'),
-            'day_name': history_doc.get('day_name'),
-            'sets': enriched_sets,
-            'progress': {
-                'total_sets': total_sets,
-                'completed_sets': completed_sets,
-                'remaining_sets': total_sets - completed_sets,
-                'completion_percentage': round((completed_sets / total_sets * 100) if total_sets > 0 else 0, 1)
-            },
-            'created_at': history_doc.get('created_at'),
-            'updated_at': history_doc.get('updated_at')
-        }
-        
-        logger.info(f"Retrieved history for user {user_id}: {history_doc.get('day_name')} - {completed_sets}/{total_sets} sets complete")
-        return response
+        logger.info(f"Retrieved latest history for user '{user_id}' and workout '{workout_id}'")
+        return status
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrieving history for user '{user_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get history: {str(e)}")
+        logger.error(f"Error getting latest history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get latest history: {str(e)}")
+
+
+@router.get("/{user_id}/{workout_id}/latest", response_model=Dict[str, Any])
+async def get_latest_history_with_workout(user_id: str, workout_id: str):
+    """
+    Get latest history for a specific user and workout.
+    
+    This endpoint allows specifying a workout_id explicitly.
+    """
+    logger.info(f"GET /history/{user_id}/{workout_id}/latest endpoint called")
+    
+    try:
+        progress_doc = get_or_create_progress(user_id, workout_id)
+        
+        # Check if day should auto-progress
+        progress_doc = check_and_progress_day_if_needed(user_id, workout_id, progress_doc)
+        
+        status = build_status_response(user_id, workout_id, progress_doc)
+        
+        logger.info(f"Retrieved latest history for user '{user_id}' and workout '{workout_id}'")
+        return status
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting latest history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get latest history: {str(e)}")
 
 
 @router.post("/{user_id}/update", response_model=Dict[str, Any])
-async def update_set_progress(user_id: str, request: UpdateSetProgressRequest):
+async def update_set_progress_endpoint(user_id: str, request: UpdateSetProgressRequest):
     """
-    Update progress on a specific set (e.g., number of reps completed).
+    Update progress on a set (e.g., partial reps completed).
     
-    - **user_id**: ID of the user
-    - **set_id**: ID of the set to update
-    - **completed_reps**: Number of reps completed (optional)
-    - **completed_duration_sec**: Duration completed in seconds (optional)
-    
-    Returns the updated history entry.
+    This does not mark the set as complete, only updates progress.
     """
-    logger.info(f"POST /history/{user_id}/update endpoint called for set {request.set_id}")
+    logger.info(f"POST /history/{user_id}/update endpoint called - workout: {request.workout_id}, set: {request.set_id}")
     
     db = get_database()
     if db is None:
-        logger.error("Database connection is None - cannot update history")
         raise HTTPException(status_code=500, detail="Database connection not available")
     
     try:
-        history_collection = db["history"]
+        # Validate workout exists
+        workouts_collection = db["workouts"]
+        workout_doc = workouts_collection.find_one({'_id': request.workout_id})
+        if not workout_doc:
+            raise HTTPException(status_code=404, detail=f"Workout '{request.workout_id}' not found")
         
-        # Get the latest history entry
-        history_doc = history_collection.find_one(
-            {'user_id': user_id},
-            sort=[('updated_at', -1)]
-        )
-        
-        if not history_doc:
-            raise HTTPException(status_code=404, detail=f"No history found for user '{user_id}'")
-        
-        # Find and update the specific set in sets_progress
-        sets_progress = history_doc.get('sets_progress', [])
+        # Validate set exists in workout
+        workout_plan = workout_doc.get('workout_plan', [])
         set_found = False
-        
-        for set_progress in sets_progress:
-            if set_progress.get('set_id') == request.set_id:
+        for day_plan in workout_plan:
+            if request.set_id in day_plan.get('exercises_ids', []):
                 set_found = True
-                if request.completed_reps is not None:
-                    set_progress['completed_reps'] = request.completed_reps
-                if request.completed_duration_sec is not None:
-                    set_progress['completed_duration_sec'] = request.completed_duration_sec
                 break
         
         if not set_found:
-            raise HTTPException(status_code=404, detail=f"Set '{request.set_id}' not found in current history")
+            raise HTTPException(status_code=404, detail=f"Set '{request.set_id}' not found in workout '{request.workout_id}'")
         
-        now = datetime.utcnow().isoformat() + 'Z'
+        # Get or create progress
+        progress_doc = get_or_create_progress(user_id, request.workout_id)
+        progress_id = f"{user_id}_{request.workout_id}"
         
-        # Update the document
-        result = history_collection.update_one(
-            {'_id': history_doc['_id']},
+        progress_collection = db["user_workout_progress"]
+        set_progress = progress_doc.get('set_progress', {})
+        
+        # Update set progress
+        if request.set_id not in set_progress:
+            set_progress[request.set_id] = {}
+        
+        if request.completed_reps is not None:
+            set_progress[request.set_id]['completed_reps'] = request.completed_reps
+        if request.completed_duration_sec is not None:
+            set_progress[request.set_id]['completed_duration_sec'] = request.completed_duration_sec
+        
+        set_progress[request.set_id]['updated_at'] = datetime.utcnow().isoformat()
+        
+        # Update database
+        progress_collection.update_one(
+            {'_id': progress_id},
             {
                 '$set': {
-                    'sets_progress': sets_progress,
-                    'updated_at': now
+                    'set_progress': set_progress,
+                    'updated_at': datetime.utcnow().isoformat()
                 }
             }
         )
         
-        if result.modified_count == 0:
-            logger.warning(f"Update did not modify document for user {user_id}")
-        
-        logger.info(f"Updated set progress for set {request.set_id} in user {user_id}'s history")
+        logger.info(f"Updated progress for set '{request.set_id}' in workout '{request.workout_id}'")
         
         return {
-            'message': 'Set progress updated successfully',
-            'history_id': history_doc['_id'],
+            'message': 'Progress updated successfully',
+            'workout_id': request.workout_id,
             'set_id': request.set_id,
-            'updated_at': now
+            'progress': set_progress[request.set_id]
         }
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating history for user '{user_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update history: {str(e)}")
+        logger.error(f"Error updating progress: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update progress: {str(e)}")
 
 
 @router.post("/{user_id}/complete", response_model=Dict[str, Any])
-async def complete_set(user_id: str, request: CompleteSetRequest):
+async def complete_set_endpoint(user_id: str, request: CompleteSetRequest):
     """
-    Mark a set as complete. When all sets in a day are complete, automatically
-    creates a new history entry for the next day in the workout plan.
+    Mark a set as complete.
     
-    - **user_id**: ID of the user
-    - **set_id**: ID of the set to mark as complete
-    
-    Returns the updated history entry, and indicates if a new day was started.
+    After marking a set as complete:
+    - If all sets in the current day are complete, automatically move to the next day
+    - If all days are complete, roll over to the first day (start again from beginning)
     """
-    logger.info(f"POST /history/{user_id}/complete endpoint called for set {request.set_id}")
+    logger.info(f"POST /history/{user_id}/complete endpoint called - workout: {request.workout_id}, set: {request.set_id}")
     
     db = get_database()
     if db is None:
-        logger.error("Database connection is None - cannot complete set")
         raise HTTPException(status_code=500, detail="Database connection not available")
     
     try:
-        history_collection = db["history"]
+        # Validate workout exists
+        workouts_collection = db["workouts"]
+        workout_doc = workouts_collection.find_one({'_id': request.workout_id})
+        if not workout_doc:
+            raise HTTPException(status_code=404, detail=f"Workout '{request.workout_id}' not found")
         
-        # Get the latest history entry
-        history_doc = history_collection.find_one(
-            {'user_id': user_id},
-            sort=[('updated_at', -1)]
-        )
+        workout_plan = workout_doc.get('workout_plan', [])
+        if not workout_plan:
+            raise HTTPException(status_code=404, detail=f"Workout plan is empty for workout '{request.workout_id}'")
         
-        if not history_doc:
-            raise HTTPException(status_code=404, detail=f"No history found for user '{user_id}'")
+        # Get or create progress
+        progress_doc = get_or_create_progress(user_id, request.workout_id)
+        progress_id = f"{user_id}_{request.workout_id}"
+        progress_collection = db["user_workout_progress"]
         
-        # Find and mark the specific set as complete
-        sets_progress = history_doc.get('sets_progress', [])
-        set_found = False
+        current_day_index = progress_doc.get('current_day_index', 0)
         
-        for set_progress in sets_progress:
-            if set_progress.get('set_id') == request.set_id:
-                set_found = True
-                set_progress['is_complete'] = True
-                set_progress['completed_at'] = datetime.utcnow().isoformat() + 'Z'
-                break
+        # Handle rollover if needed
+        if current_day_index >= len(workout_plan):
+            current_day_index = 0
         
-        if not set_found:
-            raise HTTPException(status_code=404, detail=f"Set '{request.set_id}' not found in current history")
+        current_day_plan = workout_plan[current_day_index]
+        set_ids_for_day = current_day_plan.get('exercises_ids', [])
         
-        now = datetime.utcnow().isoformat() + 'Z'
+        # Validate set is in current day
+        if request.set_id not in set_ids_for_day:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Set '{request.set_id}' is not part of the current day '{current_day_plan.get('day')}'"
+            )
         
-        # Update the current document
-        history_collection.update_one(
-            {'_id': history_doc['_id']},
+        completed_sets = set(progress_doc.get('completed_sets', []))
+        set_progress = progress_doc.get('set_progress', {})
+        
+        # Check if set is already complete (before marking)
+        was_already_complete = request.set_id in completed_sets
+        
+        # Mark set as complete
+        if request.set_id not in completed_sets:
+            completed_sets.add(request.set_id)
+            
+            # Update progress data
+            if request.set_id not in set_progress:
+                set_progress[request.set_id] = {}
+            
+            set_progress[request.set_id]['completed_at'] = datetime.utcnow().isoformat()
+            set_progress[request.set_id]['is_complete'] = True
+            
+            # Get set details to mark progress as complete
+            set_details = get_set_details(request.set_id)
+            if set_details:
+                if set_details.get('reps') and 'completed_reps' not in set_progress[request.set_id]:
+                    set_progress[request.set_id]['completed_reps'] = set_details.get('reps')
+                if set_details.get('duration_sec') and 'completed_duration_sec' not in set_progress[request.set_id]:
+                    set_progress[request.set_id]['completed_duration_sec'] = set_details.get('duration_sec')
+        
+        # Update database first to save the set completion (even if already complete)
+        progress_collection.update_one(
+            {'_id': progress_id},
             {
                 '$set': {
-                    'sets_progress': sets_progress,
-                    'updated_at': now
+                    'completed_sets': list(completed_sets),
+                    'set_progress': set_progress,
+                    'updated_at': datetime.utcnow().isoformat()
                 }
             }
         )
         
-        # Check if all sets are complete
-        all_complete = all(s.get('is_complete', False) for s in sets_progress)
+        # Check if all sets in current day are complete (check AFTER updating)
+        # Also check if set was already complete - if so, we might need to progress anyway
+        completed_sets_in_day = [s for s in set_ids_for_day if s in completed_sets]
+        all_sets_complete = len(completed_sets_in_day) == len(set_ids_for_day) and len(set_ids_for_day) > 0
+        
         new_day_started = False
         new_day_name = None
+        if was_already_complete:
+            message = f"Set '{request.set_id}' was already complete. Checking day progress..."
+        else:
+            message = f"Set '{request.set_id}' marked as complete"
         
-        if all_complete:
-            logger.info(f"All sets complete for user {user_id}, moving to next day")
+        if all_sets_complete:
+            # Move to next day
+            next_day_index = current_day_index + 1
             
-            # Get the workout to find the next day
-            workouts_collection = db["workouts"]
-            workout_id = history_doc.get('workout_id')
-            workout_doc = workouts_collection.find_one({'_id': workout_id})
+            # Check if we need to roll over (start from beginning)
+            if next_day_index >= len(workout_plan):
+                next_day_index = 0
+                # Clear completed sets when rolling over (reset for new cycle)
+                # Get sets for the new day (day 0) to clear only those
+                new_day_plan = workout_plan[next_day_index]
+                new_day_set_ids = set(new_day_plan.get('exercises_ids', []))
+                # Remove sets that belong to the new day from completed_sets so they can be done again
+                completed_sets = completed_sets - new_day_set_ids
+                message = f"All sets in '{current_day_plan.get('day')}' completed! Rolling over to first day '{new_day_plan.get('day')}'."
+                logger.info(f"Workout plan cycle complete for user '{user_id}' and workout '{request.workout_id}' - rolling over to day 0 and clearing completed sets for new day")
+            else:
+                next_day_name = workout_plan[next_day_index].get('day', 'Unknown')
+                # Clear completed sets for the current day when moving to next day
+                # Keep sets that belong to other days, but clear the current day's sets
+                current_day_set_ids = set(set_ids_for_day)
+                completed_sets = completed_sets - current_day_set_ids
+                message = f"All sets in '{current_day_plan.get('day')}' completed! Moving to next day: '{next_day_name}'"
+                logger.info(f"Day '{current_day_plan.get('day')}' completed, moving to '{next_day_name}' for user '{user_id}'")
             
-            if workout_doc:
-                workout_plan = workout_doc.get('workout_plan', [])
-                current_day_index = history_doc.get('current_day_index', 0)
-                next_day_index = current_day_index + 1
-                
-                # Check if there's a next day in the plan
-                if next_day_index < len(workout_plan):
-                    next_day = workout_plan[next_day_index]
-                    day_name = next_day.get('day')
-                    set_ids = next_day.get('exercises_ids', [])
-                    
-                    # Create progress tracking for the new day with full nested data
-                    # This mirrors the logic in create_initial_history_entry
-                    sets_collection = db["sets"]
-                    exercises_collection = db["exercises"]
-                    new_sets_progress = []
-                    
-                    for set_id in set_ids:
-                        set_doc = sets_collection.find_one({'_id': set_id})
-                        if set_doc:
-                            # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
-                            exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
-                            
-                            # Fetch exercise details
-                            exercise_doc = None
-                            if exercise_id:
-                                exercise_doc = exercises_collection.find_one({'_id': exercise_id})
-                            
-                            # Create progress tracking entry with all relevant data
-                            set_progress = {
-                                'set_id': set_id,
-                                'set_name': set_doc.get('name'),
-                                'exercise_id': exercise_id,
-                                'exercise_name': exercise_doc.get('name') if exercise_doc else None,
-                                'target_reps': set_doc.get('reps'),
-                                'completed_reps': 0,
-                                'target_weight': set_doc.get('weight'),
-                                'target_duration_sec': set_doc.get('duration_sec'),
-                                'is_complete': False,
-                                'completed_at': None
-                            }
-                            new_sets_progress.append(set_progress)
-                    
-                    # Create new history entry for the next day
-                    new_history_id = str(ObjectId())
-                    new_history_doc = {
-                        '_id': new_history_id,
-                        'user_id': user_id,
-                        'workout_id': workout_id,
-                        'current_day_index': next_day_index,
-                        'day_name': day_name,
-                        'sets_progress': new_sets_progress,
-                        'created_at': now,
-                        'updated_at': now
+            # Update day index
+            current_day_index = next_day_index
+            new_day_started = True
+            new_day_name = workout_plan[next_day_index].get('day', 'Unknown') if next_day_index < len(workout_plan) else None
+            
+            # Update database again with new day index and cleared completed sets
+            progress_collection.update_one(
+                {'_id': progress_id},
+                {
+                    '$set': {
+                        'completed_sets': list(completed_sets),
+                        'current_day_index': current_day_index,
+                        'updated_at': datetime.utcnow().isoformat()
                     }
-                    
-                    history_collection.insert_one(new_history_doc)
-                    new_day_started = True
-                    new_day_name = day_name
-                    
-                    logger.info(f"Created new history entry for {day_name} (day {next_day_index + 1}) with {len(new_sets_progress)} sets")
-                else:
-                    logger.info(f"User {user_id} has completed the entire workout plan!")
+                }
+            )
         
-        response = {
-            'message': f"Set '{request.set_id}' marked as complete",
-            'history_id': history_doc['_id'],
+        logger.info(f"Set '{request.set_id}' completed. Day complete: {all_sets_complete}, New day: {new_day_started}")
+        
+        return {
+            'message': message,
+            'workout_id': request.workout_id,
             'set_id': request.set_id,
-            'day_complete': all_complete,
+            'day_complete': all_sets_complete,
             'new_day_started': new_day_started,
-            'updated_at': now
+            'new_day_name': new_day_name,
+            'current_day_index': current_day_index
         }
-        
-        if new_day_started:
-            response['new_day_name'] = new_day_name
-            response['message'] = f"Day complete! Started new day: {new_day_name}"
-        elif all_complete:
-            response['message'] = "Congratulations! You've completed the entire workout plan!"
-        
-        logger.info(f"Marked set {request.set_id} as complete for user {user_id}")
-        return response
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error completing set for user '{user_id}': {e}", exc_info=True)
+        logger.error(f"Error completing set: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to complete set: {str(e)}")
+
+
+@router.put("/{user_id}/status", response_model=Dict[str, Any])
+async def update_status(user_id: str, request: UpdateStatusRequest):
+    """
+    Update workout status - mark sets as complete.
+    
+    Request body should contain:
+    - workout_id: (optional, uses active workout if not provided)
+    - set_id: ID of the set to mark as complete
+    
+    This is a simplified endpoint that wraps the complete functionality.
+    """
+    logger.info(f"PUT /history/{user_id}/status endpoint called")
+    
+    workout_id = request.workout_id or get_active_workout_id(user_id)
+    
+    complete_request = CompleteSetRequest(workout_id=workout_id, set_id=request.set_id)
+    return await complete_set_endpoint(user_id, complete_request)
+
+
+@router.get("/health", response_model=Dict[str, Any])
+async def health_check():
+    """Health check endpoint for history router."""
+    return {"status": "ok", "service": "history"}
+

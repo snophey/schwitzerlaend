@@ -166,6 +166,7 @@ class SetProgress(BaseModel):
 
 class UpdateSetProgressRequest(BaseModel):
     """Request model for updating progress on sets."""
+    workout_id: str = Field(..., description="ID of the workout", example="workout_123")
     set_id: str = Field(..., description="ID of the set to update", example="set_123")
     completed_reps: Optional[int] = Field(None, description="Number of reps completed", example=12)
     completed_duration_sec: Optional[int] = Field(None, description="Duration completed in seconds", example=45)
@@ -173,6 +174,7 @@ class UpdateSetProgressRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
+                "workout_id": "workout_123",
                 "set_id": "set_123",
                 "completed_reps": 12,
                 "completed_duration_sec": None
@@ -182,11 +184,27 @@ class UpdateSetProgressRequest(BaseModel):
 
 class CompleteSetRequest(BaseModel):
     """Request model for marking a set as complete."""
+    workout_id: str = Field(..., description="ID of the workout", example="workout_123")
     set_id: str = Field(..., description="ID of the set to mark complete", example="set_123")
 
     class Config:
         json_schema_extra = {
             "example": {
+                "workout_id": "workout_123",
+                "set_id": "set_123"
+            }
+        }
+
+
+class UpdateStatusRequest(BaseModel):
+    """Request model for updating workout status (simplified endpoint)."""
+    workout_id: Optional[str] = Field(None, description="ID of the workout (uses active workout if not provided)", example="workout_123")
+    set_id: str = Field(..., description="ID of the set to mark complete", example="set_123")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "workout_id": "workout_123",
                 "set_id": "set_123"
             }
         }
