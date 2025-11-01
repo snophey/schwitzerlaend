@@ -151,9 +151,13 @@ async def root():
             "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user",
             "POST /workouts/ - Create a new workout consisting of sets",
             "GET /workouts/{workout_id} - Get workout information by workout_id",
+            "DELETE /workouts/{workout_id} - Delete a workout by workout_id",
             "POST /sets/ - Create a new set consisting of exercises",
             "GET /sets/{set_id} - Get set information by set_id",
+            "DELETE /sets/{set_id} - Delete a set by set_id",
+            "DELETE /users/{user_id} - Delete a user by user_id",
             "POST /users/{user_id}/workouts/{workout_id} - Add a workout id to the workouts list",
+            "DELETE /users/{user_id}/workouts/{workout_id} - Remove a workout id from the workouts list",
         ]
     }
 
@@ -271,6 +275,53 @@ async def get_user(user_id: str):
     except Exception as e:
         logger.error(f"Error retrieving user with user_id '{user_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
+
+@app.delete("/users/{user_id}", response_model=Dict[str, Any])
+async def delete_user(user_id: str):
+    """
+    Delete a user by user_id.
+    
+    - **user_id**: Unique identifier for the user
+    
+    Returns a confirmation message upon successful deletion.
+    """
+    logger.info(f"DELETE /users/{user_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot delete user")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for users
+        users_collection = db["users"]
+        
+        # Check if user exists
+        user_doc = users_collection.find_one({'_id': user_id})
+        if not user_doc:
+            logger.warning(f"User with user_id '{user_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"User with user_id '{user_id}' not found"
+            )
+        
+        # Delete user
+        result = users_collection.delete_one({'_id': user_id})
+        
+        if result.deleted_count == 1:
+            logger.info(f"Successfully deleted user with user_id: {user_id}")
+            return {
+                "message": f"User with user_id '{user_id}' has been successfully deleted",
+                "user_id": user_id
+            }
+        else:
+            logger.error(f"Failed to delete user '{user_id}'")
+            raise HTTPException(status_code=500, detail=f"Failed to delete user with user_id '{user_id}'")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user with user_id '{user_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
 @app.post("/sets/", response_model=Dict[str, Any])
 async def create_set(request: CreateSetRequest):
@@ -390,6 +441,53 @@ async def get_set(set_id: str):
         logger.error(f"Error retrieving set with set_id '{set_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get set: {str(e)}")
 
+@app.delete("/sets/{set_id}", response_model=Dict[str, Any])
+async def delete_set(set_id: str):
+    """
+    Delete a set by set_id.
+    
+    - **set_id**: Unique identifier for the set
+    
+    Returns a confirmation message upon successful deletion.
+    """
+    logger.info(f"DELETE /sets/{set_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot delete set")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for sets
+        sets_collection = db["sets"]
+        
+        # Check if set exists
+        set_doc = sets_collection.find_one({'_id': set_id})
+        if not set_doc:
+            logger.warning(f"Set with set_id '{set_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Set with set_id '{set_id}' not found"
+            )
+        
+        # Delete set
+        result = sets_collection.delete_one({'_id': set_id})
+        
+        if result.deleted_count == 1:
+            logger.info(f"Successfully deleted set with set_id: {set_id}")
+            return {
+                "message": f"Set with set_id '{set_id}' has been successfully deleted",
+                "set_id": set_id
+            }
+        else:
+            logger.error(f"Failed to delete set '{set_id}'")
+            raise HTTPException(status_code=500, detail=f"Failed to delete set with set_id '{set_id}'")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting set with set_id '{set_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete set: {str(e)}")
+
 @app.post("/workouts/", response_model=Dict[str, Any])
 async def create_workout(request: CreateWorkoutRequest):
     """
@@ -502,6 +600,53 @@ async def get_workout(workout_id: str):
         logger.error(f"Error retrieving workout with workout_id '{workout_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get workout: {str(e)}")
 
+@app.delete("/workouts/{workout_id}", response_model=Dict[str, Any])
+async def delete_workout(workout_id: str):
+    """
+    Delete a workout by workout_id.
+    
+    - **workout_id**: Unique identifier for the workout
+    
+    Returns a confirmation message upon successful deletion.
+    """
+    logger.info(f"DELETE /workouts/{workout_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot delete workout")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for workouts
+        workouts_collection = db["workouts"]
+        
+        # Check if workout exists
+        workout_doc = workouts_collection.find_one({'_id': workout_id})
+        if not workout_doc:
+            logger.warning(f"Workout with workout_id '{workout_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout with workout_id '{workout_id}' not found"
+            )
+        
+        # Delete workout
+        result = workouts_collection.delete_one({'_id': workout_id})
+        
+        if result.deleted_count == 1:
+            logger.info(f"Successfully deleted workout with workout_id: {workout_id}")
+            return {
+                "message": f"Workout with workout_id '{workout_id}' has been successfully deleted",
+                "workout_id": workout_id
+            }
+        else:
+            logger.error(f"Failed to delete workout '{workout_id}'")
+            raise HTTPException(status_code=500, detail=f"Failed to delete workout with workout_id '{workout_id}'")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting workout with workout_id '{workout_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete workout: {str(e)}")
+
 @app.post("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any])
 async def add_workout_to_user(user_id: str, workout_id: str):
     """
@@ -583,6 +728,78 @@ async def add_workout_to_user(user_id: str, workout_id: str):
     except Exception as e:
         logger.error(f"Error adding workout to user: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to add workout to user: {str(e)}")
+
+@app.delete("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any])
+async def remove_workout_from_user(user_id: str, workout_id: str):
+    """
+    Remove a workout ID from the user's associated_workout_ids list.
+    
+    - **user_id**: ID of the user
+    - **workout_id**: ID of the workout to remove from the user's associated workouts
+    
+    Returns the updated user data.
+    """
+    logger.info(f"DELETE /users/{user_id}/workouts/{workout_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot remove workout from user")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use collections
+        users_collection = db["users"]
+        
+        # Check if user exists
+        user_doc = users_collection.find_one({'_id': user_id})
+        if not user_doc:
+            logger.warning(f"User with user_id '{user_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"User with user_id '{user_id}' not found"
+            )
+        
+        # Get current associated_workout_ids (handle None or empty list)
+        current_workout_ids = user_doc.get('associated_workout_ids', [])
+        if current_workout_ids is None:
+            current_workout_ids = []
+        
+        # Check if workout_id is in the list
+        if workout_id not in current_workout_ids:
+            logger.warning(f"Workout '{workout_id}' is not associated with user '{user_id}'")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout with workout_id '{workout_id}' is not associated with user '{user_id}'"
+            )
+        
+        # Remove workout_id from the list
+        updated_workout_ids = [wid for wid in current_workout_ids if wid != workout_id]
+        
+        # Update user document
+        result = users_collection.update_one(
+            {'_id': user_id},
+            {'$set': {'associated_workout_ids': updated_workout_ids}}
+        )
+        
+        if result.modified_count == 1:
+            logger.info(f"Successfully removed workout '{workout_id}' from user '{user_id}'")
+        elif result.matched_count == 0:
+            logger.error(f"User '{user_id}' not found for update")
+            raise HTTPException(status_code=404, detail=f"User with user_id '{user_id}' not found")
+        else:
+            logger.warning(f"Update operation didn't modify user document")
+        
+        # Return updated user data
+        return {
+            "user_id": user_id,
+            "associated_workout_ids": updated_workout_ids,
+            "message": f"Successfully removed workout '{workout_id}' from user '{user_id}'"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing workout from user: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to remove workout from user: {str(e)}")
 
 @app.post("/workouts/generate", response_model=Dict[str, Any])
 async def generate_workout(request: GenerateWorkoutRequest):
