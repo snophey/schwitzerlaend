@@ -42,31 +42,28 @@ interface WorkoutDay {
     duration_sec: number | null;
     exercise: {
       name: string;
+      category: string; // 👈 added for "strength" or "stretching" type info
       instructions: string[];
     };
   }[];
   is_rest_day: boolean;
 }
 
-interface Workout {
-  weekly_plan: WorkoutDay[];
-}
-
 interface LoaderData {
   user_id: string;
-  workouts: Workout[];
+  workouts: {
+    weekly_plan: WorkoutDay[];
+  }[];
 }
 
 export default function Home({ loaderData }: { loaderData: LoaderData }) {
-  const response = JSON.stringify(loaderData);
-
+  let strengthIndex = 0;
+  let skateIndex = 0;
   return (
     <div className="flex flex-col gap-4 p-4">
       {loaderData.workouts[0].weekly_plan.map((day: WorkoutDay, index: number) => {
-        // 💤 Skip rest days
         if (day.is_rest_day) return null;
 
-        // 🏋️ Convert sets into properly formatted exercises
         const exercises: Exercise[] = day.sets.map((set) => ({
           name: set.exercise.name,
           type: set.weight
@@ -80,11 +77,28 @@ export default function Home({ loaderData }: { loaderData: LoaderData }) {
           description: set.exercise.instructions.join(" "),
         }));
 
+        let strengthCount = 0;
+        let skateCount = 0;
+
+        day.sets.forEach((set) => {
+          const cat = set.exercise.category?.toLowerCase();
+          if (cat === "strength") strengthCount++;
+          else if (cat === "stretching" || cat === "skill") skateCount++;
+        });
+
+        const sessionType =
+          strengthCount >= skateCount ? "Strength" : "Skate Session";
+
+          const sessionNumber =
+          sessionType === "Strength"
+            ? ++strengthIndex
+            : ++skateIndex;
+
         return (
           <div key={index} className="flex justify-center items-center">
             <TrainingsPlanItem
-              title={day.day}
-              day_number={day.day_number}
+              title={sessionType}
+              day_number={sessionNumber}
               day={day.day}
               exercises={exercises}
             />

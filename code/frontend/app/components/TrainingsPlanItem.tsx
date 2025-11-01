@@ -32,7 +32,7 @@ export function TrainingsPlanItem({ title, day, day_number, exercises }: { title
         <div className="flex flex-col gap-2 p-4 rounded-md bg-gray-100 border-2 border-gray-400 w-full max-w-[30em]">
 
             <div className="flex items-center justify-between gap-2 w-full max-w-[30em]">
-                <Text size="lg" fw={600}>{title} {day_number}</Text>
+                <Text size="lg" fw={600}>{title}: {day_number}</Text>
                 {type === "skateboard" ? <TbSkateboard size={24} /> : <LuWeight size={24} />}
             </div>
 
