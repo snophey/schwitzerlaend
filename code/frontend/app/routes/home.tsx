@@ -4,6 +4,7 @@ import { TrainingsPlanItem } from "~/components/TrainingsPlanItem";
 import { getSession } from "~/sessions.server";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 
+
 export function meta({ }: Route.MetaArgs) {
   return [
     { title: "New React Router App" },
