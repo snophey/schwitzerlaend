@@ -1,5 +1,6 @@
 import { Button, Container, Stack, Text, Title, Image, type MantineStyleProp } from "@mantine/core";
 import type React from "react";
+import { FaArrowRight } from "react-icons/fa6";
 
 interface ButtonProps {
     text: string,
@@ -24,6 +25,7 @@ const NextButton: React.FC<ButtonProps> = ({ text, onClick, type="button", style
             }}
         >
             {text}
+            <FaArrowRight />
         </Button>
     );
 }

@@ -19,6 +19,7 @@ import { useState } from "react";
 import { Textarea } from "@mantine/core";
 import { getSession } from "~/sessions.server";
 import { TbInfoSquare } from "react-icons/tb";
+import Cards from "~/components/Cards";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -37,12 +38,22 @@ export async function action({ request }: Route.ActionArgs) {
 // TODO: REPLACE LINK WITH ROUTE TO NEXT SCREEN
 // TODO: REFACTOR HARD-CODED STYLES T
 export default function OnboardingForm() {
-  let [step, setStep] = useState(1);
+  let [step, setStep] = useState(0);
 
   return (
     <Form method="post" action="/onboarding">
       <PageWrapper>
         <Stack align="stretch">
+          <Stack
+            align="center"
+            gap="md"
+            display={step === 0 ? "block" : "none"}
+          >
+
+            <Cards />
+
+          </Stack>
+
           <Stack
             align="center"
             gap="md"
@@ -154,7 +165,7 @@ export default function OnboardingForm() {
             />
           </Stack>
           <Group justify="space-between" mt="auto" mb="md">
-            {step > 1 && (
+            {step > 0 && (
               <Backbutton onClick={() => setStep(step - 1)} text="Back" />
             )}
             {step < 4 && (
