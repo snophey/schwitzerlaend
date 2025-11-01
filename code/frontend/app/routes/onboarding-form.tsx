@@ -35,7 +35,7 @@ export async function action({ request }: Route.ActionArgs) {
   const userId = session.get("userId");
   const formData = await request.formData();
 
-  console.log("Logged in as: " + session.get("userId"));
+  console.log("Logged in as: " + userId);
   console.log("Form submitted");
   console.log(formData);
 
