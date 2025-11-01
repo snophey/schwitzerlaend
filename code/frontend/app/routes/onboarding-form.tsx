@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import type { Route } from "./+types/onboarding-form";
 import NextButton from "~/components/NextButton";
+import Backbutton from "~/components/BackButton";
 import { Form } from "react-router";
 import { WeekdaySelector } from "~/components/weekday-select/WeekdaySelect";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
@@ -152,7 +153,7 @@ export default function OnboardingForm() {
           </Stack>
           <Group justify="space-between" mt="auto" mb="md">
             {step > 1 && (
-              <NextButton onClick={() => setStep(step - 1)} text="Back" />
+              <Backbutton onClick={() => setStep(step - 1)} text="Back" />
             )}
             {step < 4 && (
               <NextButton

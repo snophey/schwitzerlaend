@@ -11,9 +11,10 @@ import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import StartButton from "~/components/StartButton";
 import NextButton from "~/components/NextButton";
-import { useSession } from "~/sessionProvider";
 import Cards from "~/components/Cards";
+import { useSession } from "~/sessionProvider";
 import { Link } from "react-router";
+import BackButton from "~/components/BackButton";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -64,7 +65,6 @@ export default function Onboarding() {
         {/* Button */}
         <StartButton text="Let's schwitz" />
         <Link to="/onboarding"></Link>
-        <Cards />
       </Stack>
     </PageWrapper>
   );
