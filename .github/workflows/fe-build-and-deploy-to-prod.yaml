@@ -1,6 +1,12 @@
-<name: Build image and deploy to prod
+name: "FE: Build image and deploy to prod"
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'code/frontend/**'
+      - '.github/workflows/fe-build-and-deploy-to-prod.yaml'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +19,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   ENVIRONMENT: ${{ vars.ENV_NAME }}
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}-fe
   # Kubernetes
   PROJECT_NAME: ${{ vars.PROJECT_NAME }}
   K8S_SA_TOKEN: ${{ secrets.K8S_SA_TOKEN }}
@@ -30,7 +36,7 @@ jobs:
         with:
           fetch-depth: 1
       
-      - uses: docker/frontend/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+      - uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
         name: Log in to GitHub Container Registry
         with:
           registry: ${{ env.REGISTRY }}
@@ -47,12 +53,12 @@ jobs:
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
-          context: code/
+          context: code/frontend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          file: code/Dockerfile
-      
+          file: code/frontend/Dockerfile
+
       # Only for public repositories:
       #- name: Generate artifact attestation
       #  uses: actions/attest-build-provenance@v1
@@ -65,7 +71,7 @@ jobs:
         uses: Azure/setup-kubectl@v3
       
       - name: Deploy
-        working-directory: ./code/infrastructure
+        working-directory: ./code/frontend/infrastructure
         run: |
             echo -n $K8S_CA_CRT | base64 -d > $HOME/ca.crt
             echo "TYPESENSE_API_KEY=${{ secrets.TYPESENSE_API_KEY }}" > base/typesense.env
