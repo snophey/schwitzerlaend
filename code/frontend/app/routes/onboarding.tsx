@@ -1,6 +1,8 @@
 import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
 import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper";
+import StartButton from "~/components/StartButton";
+import NextButton from "~/components/StartButton";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -42,16 +44,8 @@ export default function Onboarding() {
         </Text>
 
         {/* Button */}
-        <Button
-          component="a"
-          href="#"
-          color="red"
-          radius="xs"
-          size="md"
-          mt="md"
-        >
-          Let’s schwiitz
-        </Button>
+        <StartButton text="Let's schwitz" />
+        <NextButton text="Next" />
       </Stack>
     </PageWrapper>
   );
