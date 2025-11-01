@@ -18,6 +18,7 @@ import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import { useState } from "react";
 import { Textarea } from "@mantine/core";
 import { getSession } from "~/sessions.server";
+import { TbInfoSquare } from "react-icons/tb";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -71,6 +72,7 @@ export default function OnboardingForm() {
               mt="md"
               style={{ textAlign: "left" }}
             >
+              <TbInfoSquare />
               Plan your training days with recovery in mind! If your muscles
               feel tired or sore, give your body time to rest. Recovery is where
               progress happens.
