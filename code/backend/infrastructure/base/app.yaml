@@ -37,7 +37,7 @@ spec:
         app: app
     spec:
       volumes:
-        - name: secrets
+        - name: mongo-cert
           secret:
             secretName: mongo-cert
       imagePullSecrets:

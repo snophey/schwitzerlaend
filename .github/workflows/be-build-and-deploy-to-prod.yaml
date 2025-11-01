@@ -1,4 +1,4 @@
-name: "FE: Build image and deploy to prod"
+name: "BE: Build image and deploy to prod"
 
 on:
   push:
