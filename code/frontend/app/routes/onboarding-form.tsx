@@ -20,6 +20,7 @@ import { Textarea } from "@mantine/core";
 import { getSession } from "~/sessions.server";
 import { TbInfoSquare } from "react-icons/tb";
 import Cards from "~/components/Cards";
+import SkateCards from "~/components/SkateStrengthCards";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -121,6 +122,7 @@ export default function OnboardingForm() {
               label="Skateboard"
               placeholder="For example, how long have you been training? What techniques or skills have you already mastered?"
             />
+            <SkateCards />
             <Textarea
               style={{ textAlign: "left" }}
               mt={"md"}
@@ -129,6 +131,8 @@ export default function OnboardingForm() {
               name="experience-strength"
               placeholder="For example, how long have you been training? What fitness-related achievement are you most proud of?"
             />
+
+            <SkateCards />
           </Stack>
           <Stack
             align="center"
