@@ -14,6 +14,13 @@ body {
   }
 }
 
+/*
+ * Satoshi Variable Font
+ * form https://www.fontshare.com/fonts/satoshi
+ * 
+ * Please be nice and check the license before using it 
+ * in a commercial project
+ */
 @font-face {
   font-family: 'Satoshi';
   src: url('../assets/font/Satoshi-Variable.woff2') format('woff2'),
