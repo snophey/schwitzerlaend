@@ -187,7 +187,7 @@ export default function OnboardingForm() {
             </Text>
 
             {selectedSports.map((sport) => (
-              <>
+              <div key={sport}>
                 <Textarea
                   key={sport}
                   style={{ textAlign: "left" }}
@@ -199,7 +199,7 @@ export default function OnboardingForm() {
                 />
 
                 <SkateCards />
-              </>
+              </div>
             ))}
           </Stack>
 
