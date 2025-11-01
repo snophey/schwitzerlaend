@@ -2,7 +2,7 @@ import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
 import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper";
 import StartButton from "~/components/StartButton";
-import NextButton from "~/components/StartButton";
+import NextButton from "~/components/NextButton";
 
 export function meta({}: Route.MetaArgs) {
   return [

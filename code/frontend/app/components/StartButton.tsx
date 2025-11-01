@@ -5,7 +5,7 @@ interface ButtonText {
   text: string 
 }
 
-const NextButton: React.FC<ButtonText> = ({ text })  => {
+const StartButton: React.FC<ButtonText> = ({ text }) => {
   return (
     < Button
       component="a"
@@ -20,4 +20,4 @@ const NextButton: React.FC<ButtonText> = ({ text })  => {
   );
 }
 
-export default NextButton;
+export default StartButton;
