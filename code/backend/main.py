@@ -384,12 +384,12 @@ The response must be valid JSON with this EXACT structure where the workout name
 {
   "Workout Name": {
     "Exercise Name 1": {
-      "type": "repetition" | "weighted repetition" | "time" | "distance",
+      "type": "repetition" | "weighted repetition" | "time" | "distance" | "skill",
       "description": "Detailed description of how to perform the exercise",
-      "reps": <number> (only if type is "repetition" or "weighted repetition"),
+      "reps": <number> (only if type is "repetition", "weighted repetition", or "skill"),
       "weight": <number> (only if type is "weighted repetition"),
       "duration_sec": <number> (only if type is "time"),
-      "distance_m": <number> (only if type is "distance")
+      "distance_m": <number> (only if type is "distance"),
       "skill": <string> (only if type is "skill")
     },
     "Exercise Name 2": {
@@ -797,6 +797,13 @@ async def get_dummy_workout_plan():
                         "type": "time",
                         "duration_sec": 60,
                         "description": "Hold plank position for 60 seconds"
+                    },
+                    {
+                        "name": "Bench Press",
+                        "type": "weighted repetition",
+                        "reps": 8,
+                        "weight": 75.0,
+                        "description": "Perform 8 reps of bench press with 75kg load"
                     }
                 ]
             },

@@ -433,13 +433,13 @@ Each day can either:
 **Notes:**
 - The plan always returns 7 entries (Monday through Sunday)
 - Empty days have `exercises: []` (no training/rest days)
-- Exercise structure includes: `name`, `type`, `description`, and type-specific fields (`reps`, `weight`, `duration_sec`, `distance_m`)
+- Exercise structure includes: `name`, `type`, `description`, and type-specific fields (`reps`, `weight`, `duration_sec`, `distance_m`, `skill`)
 
 ## Data Models
 
 ### Exercise Types
 
-Exercises can be one of four types:
+Exercises can be one of five types:
 
 1. **`repetition`**: Exercise based on number of repetitions
    - Required: `type`, `description`
@@ -457,15 +457,20 @@ Exercises can be one of four types:
    - Required: `type`, `description`
    - Optional: `distance_m`
 
+5. **`skill`**: Skill-based exercise
+   - Required: `type`, `description`
+   - Optional: `reps`, `skill`
+
 ### Exercise Schema
 ```json
 {
-  "type": "repetition" | "weighted repetition" | "time" | "distance",
+  "type": "repetition" | "weighted repetition" | "time" | "distance" | "skill",
   "description": "string",
-  "reps": 0,                    // Optional, for "repetition" or "weighted repetition"
+  "reps": 0,                    // Optional, for "repetition", "weighted repetition", or "skill"
   "weight": 0.0,                // Optional, for "weighted repetition"
   "duration_sec": 0,            // Optional, for "time"
-  "distance_m": 0               // Optional, for "distance"
+  "distance_m": 0,              // Optional, for "distance"
+  "skill": "string"             // Optional, for "skill"
 }
 ```
 
