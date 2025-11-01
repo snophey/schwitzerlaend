@@ -12,7 +12,8 @@ A FastAPI-based REST API for managing workout plans and exercises. This API supp
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.8 or higher (for local development)
+- Docker and Docker Compose (for containerized deployment)
 - MongoDB Atlas account with X509 certificate authentication configured
 - OpenAI API key
 - X509 certificate file for MongoDB authentication
@@ -85,6 +86,111 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 Once the server is running, you can access:
 - **Interactive API docs (Swagger UI)**: `http://localhost:8000/docs`
 - **Alternative docs (ReDoc)**: `http://localhost:8000/redoc`
+
+## Docker Deployment
+
+The application can be deployed using Docker for a consistent, isolated environment.
+
+### Prerequisites for Docker
+
+- Docker Desktop installed and running
+- X509 certificate file placed in the `secrets/` directory
+- OpenAI API key set as an environment variable
+
+### Using Docker Compose (Recommended)
+
+1. **Navigate to the backend directory:**
+   ```bash
+   cd code/backend
+   ```
+
+2. **Set your OpenAI API key:**
+   ```bash
+   export OPENAI_API_KEY="your-api-key-here"
+   ```
+
+3. **Build and start the container:**
+   ```bash
+   docker compose up --build -d
+   ```
+
+4. **View logs:**
+   ```bash
+   docker compose logs -f
+   ```
+
+5. **Stop the container:**
+   ```bash
+   docker compose down
+   ```
+
+### Using Docker Run
+
+Alternatively, you can build and run the container directly:
+
+1. **Build the Docker image:**
+   ```bash
+   docker build -t backend-api -f code/backend/Dockerfile code/backend
+   ```
+
+2. **Run the container:**
+   ```bash
+   docker run -d -p 8000:8000 \
+     --name backend-api-container \
+     -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+     backend-api
+   ```
+
+3. **View logs:**
+   ```bash
+   docker logs -f backend-api-container
+   ```
+
+4. **Stop the container:**
+   ```bash
+   docker stop backend-api-container
+   docker rm backend-api-container
+   ```
+
+### Docker Commands Reference
+
+**Docker Compose:**
+- `docker compose up -d` - Start in detached mode
+- `docker compose up --build -d` - Rebuild and start
+- `docker compose down` - Stop and remove containers
+- `docker compose logs -f` - Follow logs
+- `docker compose ps` - List running containers
+- `docker compose restart` - Restart services
+- `docker compose stop` - Stop without removing
+
+**Docker Run:**
+- `docker ps` - List running containers
+- `docker images` - List images
+- `docker logs <container-name>` - View logs
+- `docker exec -it <container-name> /bin/bash` - Access container shell
+
+### Environment Variables
+
+The container requires the `OPENAI_API_KEY` environment variable. You can:
+
+1. **Export it before running:**
+   ```bash
+   export OPENAI_API_KEY="your-key-here"
+   docker compose up -d
+   ```
+
+2. **Create a `.env` file** in the backend directory:
+   ```
+   OPENAI_API_KEY=your-key-here
+   ```
+   Docker Compose will automatically load variables from `.env`.
+
+### Notes
+
+- The X509 certificate is copied into the Docker image during build
+- Port 8000 is exposed and mapped to `localhost:8000`
+- The container runs in detached mode (`-d`) by default
+- Use `docker compose logs` to debug issues
 
 ## API Endpoints
 
