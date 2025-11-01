@@ -12,6 +12,7 @@ from routers.users import router as users_router
 from routers.workouts import router as workouts_router
 from routers.sets import router as sets_router
 from routers.exercises import router as exercises_router
+from routers.history import router as history_router
 
 # Configure logging
 logging.basicConfig(
@@ -84,6 +85,7 @@ app.include_router(users_router)
 app.include_router(workouts_router)
 app.include_router(sets_router)
 app.include_router(exercises_router)
+app.include_router(history_router)
 
 
 @app.get("/")
@@ -98,6 +100,7 @@ async def root():
             "users": "/users",
             "workouts": "/workouts",
             "sets": "/sets",
-            "exercises": "/exercises"
+            "exercises": "/exercises",
+            "history": "/history"
         }
     }
