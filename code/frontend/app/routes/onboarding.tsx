@@ -1,5 +1,6 @@
 import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
 import type { Route } from "./+types/home";
+import PageWrapper from "~/components/PageWrapper";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -12,16 +13,7 @@ export function meta({}: Route.MetaArgs) {
 // TODO: REFACTOR HARD-CODED STYLES T
 export default function Onboarding() {
   return (
-    <Container
-      size={380}
-      p="xl"
-      style={{
-        backgroundColor: "white",
-        borderRadius: "8px",
-        textAlign: "center",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-      }}
-    >
+    <PageWrapper>
       <Stack align="center" gap="md">
         {/* Logo */}
         <div>
@@ -61,6 +53,6 @@ export default function Onboarding() {
           Let’s schwiitz
         </Button>
       </Stack>
-    </Container>
+    </PageWrapper>
   );
 }
