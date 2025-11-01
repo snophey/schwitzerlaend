@@ -1,13 +1,15 @@
-import { Button, Container, Stack, Text, Title, Image, type ButtonProps } from "@mantine/core";
+import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
 import type React from "react";
 
-interface ButtonText {
-    text: string
+interface ButtonProps {
+    text: string,
+    onClick: () => void,
 }
 
-const NextButton: React.FC<ButtonText> = ({ text }) => {
+const NextButton: React.FC<ButtonProps> = ({ text, onClick }) => {
     return (
         <Button
+            onClick={onClick}
             component="a"
             href="#"
             color="red"
