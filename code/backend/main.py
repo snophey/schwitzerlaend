@@ -59,11 +59,12 @@ app = FastAPI(
 
 # Request models
 class Exercise(BaseModel):
-    type: str  # 'repetition', 'weighted repetition', 'time', 'distance'
+    type: str  # 'repetition', 'weighted repetition', 'time', 'distance', 'skill'
     reps: Optional[int] = None
     weight: Optional[float] = None
     duration_sec: Optional[int] = None
-    distance_m: Optional[int] = None
+    # distance_m: Optional[int] = None
+    skill: Optional[str] = None
     description: str
 
 class AddWorkoutRequest(BaseModel):
@@ -136,7 +137,8 @@ async def root():
             "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout",
             "GET /workouts/{workout_name}/exercises/count - Get the number of exercises for a workout",
             "GET /workouts/{workout_name}/exercises - Get all exercises for a workout",
-            "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)"
+            "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)",
+            "GET /workouts/dummy - Get a dummy weekly workout plan (7 days)"
         ]
     }
 
@@ -388,6 +390,7 @@ The response must be valid JSON with this EXACT structure where the workout name
       "weight": <number> (only if type is "weighted repetition"),
       "duration_sec": <number> (only if type is "time"),
       "distance_m": <number> (only if type is "distance")
+      "skill": <string> (only if type is "skill")
     },
     "Exercise Name 2": {
       "type": "time",
@@ -490,7 +493,8 @@ Example:
                     reps=exercise_data.get("reps"),
                     weight=exercise_data.get("weight"),
                     duration_sec=exercise_data.get("duration_sec"),
-                    distance_m=exercise_data.get("distance_m")
+                    distance_m=exercise_data.get("distance_m"),
+                    skill=exercise_data.get("skill")
                 )
         
         # Create AddWorkoutRequest
@@ -755,6 +759,152 @@ async def get_workout_exercise_by_index(workout_name: str, exercise_index: int):
     except Exception as e:
         logger.error(f"Error getting exercise at index {exercise_index} for workout '{workout_name}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get exercise: {str(e)}")
+
+@app.get("/workouts/dummy", response_model=List[Dict[str, Any]])
+async def get_dummy_workout_plan():
+    """
+    Get a dummy weekly workout plan with 7 entries (one for each weekday).
+    
+    Each day can either:
+    - Be empty (no training): exercises will be an empty list
+    - Contain a list of exercises: exercises will be a list of exercise JSON objects
+    
+    Returns a list of 7 entries representing Monday through Sunday.
+    """
+    logger.info("GET /workout-plan/dummy endpoint called")
+    
+    try:
+        # Create a dummy workout plan for 7 days
+        workout_plan = [
+            {
+                "day": "Monday",
+                "day_number": 1,
+                "exercises": [
+                    {
+                        "name": "Push-ups",
+                        "type": "repetition",
+                        "reps": 15,
+                        "description": "Perform 15 push-ups with proper form"
+                    },
+                    {
+                        "name": "Pull-ups",
+                        "type": "repetition",
+                        "reps": 10,
+                        "description": "Complete 10 pull-ups or assisted pull-ups"
+                    },
+                    {
+                        "name": "Plank",
+                        "type": "time",
+                        "duration_sec": 60,
+                        "description": "Hold plank position for 60 seconds"
+                    }
+                ]
+            },
+            {
+                "day": "Tuesday",
+                "day_number": 2,
+                "exercises": [
+                    {
+                        "name": "Cool Down Stretch",
+                        "type": "time",
+                        "duration_sec": 300,
+                        "description": "Stretch for 5 minutes after running"
+                    },
+                    {
+                        "name": "Kickflip",
+                        "type": "skill",
+                        "reps": 20,
+                        "description": "Just dooo it !!"
+                    }
+                ]
+            },
+            {
+                "day": "Wednesday",
+                "day_number": 3,
+                "exercises": [
+                    {
+                        "name": "Squats",
+                        "type": "repetition",
+                        "reps": 20,
+                        "description": "Perform 20 bodyweight squats"
+                    },
+                    {
+                        "name": "Lunges",
+                        "type": "repetition",
+                        "reps": 12,
+                        "description": "Do 12 lunges on each leg"
+                    },
+                    {
+                        "name": "Leg Raises",
+                        "type": "repetition",
+                        "reps": 15,
+                        "description": "Complete 15 leg raises"
+                    }
+                ]
+            },
+            {
+                "day": "Thursday",
+                "day_number": 4,
+                "exercises": []  # Rest day / No training
+            },
+            {
+                "day": "Friday",
+                "day_number": 5,
+                "exercises": [
+                    {
+                        "name": "Bench Press",
+                        "type": "weighted repetition",
+                        "reps": 10,
+                        "weight": 80.0,
+                        "description": "Perform 10 reps of bench press with 80kg"
+                    },
+                    {
+                        "name": "Deadlift",
+                        "type": "weighted repetition",
+                        "reps": 8,
+                        "weight": 100.0,
+                        "description": "Complete 8 reps of deadlift with 100kg"
+                    },
+                    {
+                        "name": "Barbell Rows",
+                        "type": "weighted repetition",
+                        "reps": 12,
+                        "weight": 60.0,
+                        "description": "Do 12 reps of barbell rows with 60kg"
+                    }
+                ]
+            },
+            {
+                "day": "Saturday",
+                "day_number": 6,
+                "exercises": [
+                    {
+                        "name": "Yoga Flow",
+                        "type": "time",
+                        "duration_sec": 1800,
+                        "description": "Complete a 30-minute yoga flow session"
+                    },
+                    {
+                        "name": "Meditation",
+                        "type": "time",
+                        "duration_sec": 600,
+                        "description": "Meditate for 10 minutes"
+                    }
+                ]
+            },
+            {
+                "day": "Sunday",
+                "day_number": 7,
+                "exercises": []  # Rest day / No training
+            }
+        ]
+        
+        logger.info(f"Returning dummy workout plan with {len(workout_plan)} days")
+        return workout_plan
+    
+    except Exception as e:
+        logger.error(f"Error generating dummy workout plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate dummy workout plan: {str(e)}")
 
 @app.delete("/workouts/{workout_name}", response_model=Dict[str, Any])
 async def delete_workout(workout_name: str):

@@ -211,7 +211,8 @@ Returns API information and available endpoints.
     "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout",
     "GET /workouts/{workout_name}/exercises/count - Get the number of exercises for a workout",
     "GET /workouts/{workout_name}/exercises - Get all exercises for a workout",
-    "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)"
+    "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)",
+    "GET /workout-plan/dummy - Get a dummy weekly workout plan (7 days)"
   ]
 }
 ```
@@ -372,6 +373,68 @@ Gets a specific exercise from a workout by its index (1-based).
 - `400`: Invalid index (must be >= 1)
 - `404`: Workout not found or index exceeds number of exercises
 
+### Workout Plans
+
+#### `GET /workout-plan/dummy`
+Gets a dummy weekly workout plan with 7 entries (one for each weekday from Monday to Sunday).
+
+Each day can either:
+- Be empty (no training): `exercises` will be an empty array `[]`
+- Contain exercises: `exercises` will be a list of exercise JSON objects
+
+**Response:**
+```json
+[
+  {
+    "day": "Monday",
+    "day_number": 1,
+    "exercises": [
+      {
+        "name": "Push-ups",
+        "type": "repetition",
+        "reps": 15,
+        "description": "Perform 15 push-ups with proper form"
+      },
+      {
+        "name": "Pull-ups",
+        "type": "repetition",
+        "reps": 10,
+        "description": "Complete 10 pull-ups or assisted pull-ups"
+      },
+      {
+        "name": "Plank",
+        "type": "time",
+        "duration_sec": 60,
+        "description": "Hold plank position for 60 seconds"
+      }
+    ]
+  },
+  {
+    "day": "Tuesday",
+    "day_number": 2,
+    "exercises": [
+      {
+        "name": "Running",
+        "type": "distance",
+        "distance_m": 5000,
+        "description": "Run 5 kilometers at moderate pace"
+      }
+    ]
+  },
+  {
+    "day": "Thursday",
+    "day_number": 4,
+    "exercises": []
+  },
+  ...
+]
+```
+
+**Notes:**
+- The plan always returns 7 entries (Monday through Sunday)
+- Empty days have `exercises: []` (no training/rest days)
+- Exercise structure includes: `name`, `type`, `description`, and type-specific fields (`reps`, `weight`, `duration_sec`, `distance_m`)
+
 ## Data Models
 
 ### Exercise Types
@@ -498,6 +561,9 @@ curl http://localhost:8000/workouts/Yoga/exercises/1
 
 # Get the second exercise
 curl http://localhost:8000/workouts/Yoga/exercises/2
+
+# Get dummy weekly workout plan
+curl http://localhost:8000/workout-plan/dummy
 ```
 
 ### Code Structure
