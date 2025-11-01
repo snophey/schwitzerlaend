@@ -1,16 +1,15 @@
 import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
 import type { Route } from "./+types/home";
-import PageWrapper from "~/components/PageWrapper";
+import PageWrapper from "~/components/PageWrapper/PageWrapper";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Welcome to Sweatzerländ!" },
+    { name: "description", content: "Welcome to Sweatzerländ!" },
   ];
 }
 
 // TODO: REPLACE LINK WITH ROUTE TO NEXT SCREEN
-// TODO: REFACTOR HARD-CODED STYLES T
 export default function Onboarding() {
   return (
     <PageWrapper>
@@ -18,10 +17,13 @@ export default function Onboarding() {
         {/* Logo */}
         <div>
           <Image
-            src="/logo.png" // replace with your image path
+            src="/../assets/img/logo.svg"
             alt="Schwitzerland logo"
-            w={64}
+            w={72}
             mx="auto"
+            styles={{
+              root: { transform: "translateX(-0.5em)" },
+            }}
           />
           <Text fw={600} mt="xs">
             Schwitzerland
