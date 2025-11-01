@@ -19,17 +19,22 @@ async def health_check():
 
 
 def create_initial_history_entry(user_id: str, workout_id: str, db):
-    """Create the initial history entry for a user's workout."""
+    """
+    Create the initial history entry for a user's workout.
+    Derives structure from sets (code/backend/routers/sets.py) and exercises (code/backend/routers/exercises.py).
+    """
     logger.info(f"Creating initial history entry for user {user_id}, workout {workout_id}")
     
     workouts_collection = db["workouts"]
     workout_doc = workouts_collection.find_one({'_id': workout_id})
     
     if not workout_doc:
+        logger.error(f"Workout '{workout_id}' not found")
         raise HTTPException(status_code=404, detail=f"Workout '{workout_id}' not found")
     
     workout_plan = workout_doc.get('workout_plan', [])
     if not workout_plan:
+        logger.error(f"Workout '{workout_id}' has empty workout_plan")
         raise HTTPException(status_code=400, detail="Workout plan is empty")
     
     # Start with the first day
@@ -37,15 +42,35 @@ def create_initial_history_entry(user_id: str, workout_id: str, db):
     day_name = first_day.get('day')
     set_ids = first_day.get('exercises_ids', [])
     
+    logger.info(f"First day is '{day_name}' with {len(set_ids)} sets: {set_ids}")
+    
     # Get set details to create progress tracking
+    # This derives from the sets structure as defined in code/backend/routers/sets.py
     sets_collection = db["sets"]
+    exercises_collection = db["exercises"]
     sets_progress = []
     
     for set_id in set_ids:
         set_doc = sets_collection.find_one({'_id': set_id})
         if set_doc:
+            # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
+            exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
+            
+            # Fetch exercise details from code/backend/routers/exercises.py structure
+            exercise_doc = None
+            if exercise_id:
+                exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+                if not exercise_doc:
+                    logger.warning(f"Exercise '{exercise_id}' referenced by set '{set_id}' not found")
+            else:
+                logger.warning(f"Set '{set_id}' has no exercise_id")
+            
+            # Create progress tracking entry with all relevant data from set and exercise
             set_progress = {
                 'set_id': set_id,
+                'set_name': set_doc.get('name'),
+                'exercise_id': exercise_id,
+                'exercise_name': exercise_doc.get('name') if exercise_doc else None,
                 'target_reps': set_doc.get('reps'),
                 'completed_reps': 0,
                 'target_weight': set_doc.get('weight'),
@@ -54,6 +79,13 @@ def create_initial_history_entry(user_id: str, workout_id: str, db):
                 'completed_at': None
             }
             sets_progress.append(set_progress)
+            logger.info(f"Added set '{set_id}' ({set_doc.get('name')}) with exercise '{exercise_id}' ({exercise_doc.get('name') if exercise_doc else 'N/A'})")
+        else:
+            logger.warning(f"Set '{set_id}' not found in sets collection")
+    
+    if not sets_progress:
+        logger.error(f"No valid sets found for workout '{workout_id}', day '{day_name}'")
+        raise HTTPException(status_code=400, detail=f"No valid sets found for first day of workout")
     
     history_id = str(ObjectId())
     now = datetime.utcnow().isoformat() + 'Z'
@@ -70,9 +102,14 @@ def create_initial_history_entry(user_id: str, workout_id: str, db):
     }
     
     history_collection = db["history"]
-    history_collection.insert_one(history_doc)
+    result = history_collection.insert_one(history_doc)
     
-    logger.info(f"Created history entry {history_id} for {day_name} with {len(sets_progress)} sets")
+    if result.inserted_id:
+        logger.info(f"Successfully created history entry {history_id} for user {user_id}, day '{day_name}' with {len(sets_progress)} sets")
+    else:
+        logger.error(f"Failed to insert history document for user {user_id}")
+        raise HTTPException(status_code=500, detail="Failed to create history entry")
+    
     return history_doc
 
 
@@ -177,7 +214,7 @@ async def get_latest_history(user_id: str):
             'updated_at': history_doc.get('updated_at')
         }
         
-        logger.info(f"Retrieved history for user {user_id}: {day_name} - {completed_sets}/{total_sets} sets complete")
+        logger.info(f"Retrieved history for user {user_id}: {history_doc.get('day_name')} - {completed_sets}/{total_sets} sets complete")
         return response
     
     except HTTPException:
@@ -347,15 +384,29 @@ async def complete_set(user_id: str, request: CompleteSetRequest):
                     day_name = next_day.get('day')
                     set_ids = next_day.get('exercises_ids', [])
                     
-                    # Create progress tracking for the new day
+                    # Create progress tracking for the new day with full nested data
+                    # This mirrors the logic in create_initial_history_entry
                     sets_collection = db["sets"]
+                    exercises_collection = db["exercises"]
                     new_sets_progress = []
                     
                     for set_id in set_ids:
                         set_doc = sets_collection.find_one({'_id': set_id})
                         if set_doc:
+                            # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
+                            exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
+                            
+                            # Fetch exercise details
+                            exercise_doc = None
+                            if exercise_id:
+                                exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+                            
+                            # Create progress tracking entry with all relevant data
                             set_progress = {
                                 'set_id': set_id,
+                                'set_name': set_doc.get('name'),
+                                'exercise_id': exercise_id,
+                                'exercise_name': exercise_doc.get('name') if exercise_doc else None,
                                 'target_reps': set_doc.get('reps'),
                                 'completed_reps': 0,
                                 'target_weight': set_doc.get('weight'),
@@ -382,7 +433,7 @@ async def complete_set(user_id: str, request: CompleteSetRequest):
                     new_day_started = True
                     new_day_name = day_name
                     
-                    logger.info(f"Created new history entry for {day_name} (day {next_day_index + 1})")
+                    logger.info(f"Created new history entry for {day_name} (day {next_day_index + 1}) with {len(new_sets_progress)} sets")
                 else:
                     logger.info(f"User {user_id} has completed the entire workout plan!")
         
