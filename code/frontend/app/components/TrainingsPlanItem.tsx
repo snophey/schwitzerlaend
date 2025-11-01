@@ -40,7 +40,7 @@ export function TrainingsPlanItem({ title, day, day_number, exercises }: { title
                 <Text>{day}</Text>
             </div>
 
-            <Tag color="red-200">{exerciseNum} Exercises</Tag>
+            <Tag color="bg-red-200">{exerciseNum} Exercises</Tag>
 
         </div>
     );
