@@ -4,14 +4,14 @@ import type React from "react";
 interface ButtonProps {
     text: string,
     onClick: () => void,
+    type?: "button" | "submit",
 }
 
-const NextButton: React.FC<ButtonProps> = ({ text, onClick }) => {
+const NextButton: React.FC<ButtonProps> = ({ text, onClick, type="button",  }) => {
     return (
         <Button
             onClick={onClick}
-            component="a"
-            href="#"
+            type={type}
             color="red"
             radius="xs"
             size="md"
