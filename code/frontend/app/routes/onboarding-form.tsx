@@ -8,6 +8,7 @@ import {
   Group,
   Alert,
   rem,
+  Flex,
 } from "@mantine/core";
 import type { Route } from "./+types/onboarding-form";
 import NextButton from "~/components/NextButton";
@@ -104,8 +105,15 @@ export default function OnboardingForm() {
       {data?.error && <Alert color="red">{data.error}</Alert>}
       {data && !data.error && <pre>{JSON.stringify(data, null, 2)}</pre>}
 
-      <Form method="post" action="/onboarding">
+      <Form
+        method="post"
+        action="/onboarding"
+        onSubmit={() => {
+          setStep(5); // show loading screen
+        }}
+      >
         <Stack align="stretch">
+          {/* --- Sport selection ---*/}
           <Stack
             align="center"
             gap="md"
@@ -127,6 +135,7 @@ export default function OnboardingForm() {
             />
           </Stack>
 
+          {/* --- Training days ---*/}
           <Stack
             align="center"
             gap="md"
@@ -162,6 +171,8 @@ export default function OnboardingForm() {
               progress happens.
             </Alert>
           </Stack>
+
+          {/* --- Experience ---*/}
           <Stack
             align="center"
             gap="md"
@@ -194,6 +205,8 @@ export default function OnboardingForm() {
 
             <SkateCards />
           </Stack>
+
+          {/* --- Goal ---*/}
           <Stack
             align="center"
             gap="md"
@@ -220,6 +233,8 @@ export default function OnboardingForm() {
               placeholder="For example, are you training for strength or hypertrophy?"
             />
           </Stack>
+
+          {/* --- Body condition ---*/}
           <Stack
             align="center"
             gap="md"
@@ -241,7 +256,7 @@ export default function OnboardingForm() {
             />
           </Stack>
           <Group justify="space-between" mt="auto" mb="md">
-            {step > 0 && (
+            {step > 0 && step !== 5 && (
               <Backbutton onClick={() => setStep(step - 1)} text="Back" />
             )}
             {step < 4 && (
@@ -257,6 +272,21 @@ export default function OnboardingForm() {
               <NextButton type="submit" onClick={() => {}} text="Begin" />
             )}
           </Group>
+
+          {/* --- Loading screen ---*/}
+          <Stack
+            justify="center"
+            gap="md"
+            mt="xl"
+            display={step === 5 ? "flex" : "none"}
+          >
+            <Title order={2} mb={"lg"}>
+              Generating your personalized workout plan...
+            </Title>
+            <Text size="sm">
+              In the meantime, you can do 20 jumping jacks to warm up!
+            </Text>
+          </Stack>
         </Stack>
       </Form>
     </PageWrapper>
