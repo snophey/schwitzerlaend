@@ -49,8 +49,20 @@ export default function OnboardingForm() {
             gap="md"
             display={step === 0 ? "block" : "none"}
           >
+            <Title mb="lg" order={2}>
+              Let's start with your profile
+            </Title>
+            <Text size="sm">Which sport do you want to train?</Text>
 
             <Cards />
+            <Textarea
+              style={{ textAlign: "center" }}
+              mt={"md"}
+              variant="filled"
+              label="Freitext"
+              name="injuries-specialties"
+              placeholder="Add your own sport"
+            />
 
           </Stack>
 
