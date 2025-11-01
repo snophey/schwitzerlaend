@@ -23,17 +23,74 @@ export async function loader({ request }: Route.LoaderArgs): Promise<any> {
   }
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
-  const response = (JSON.stringify(loaderData));
-  return (
-    <div className="flex justify-center align-center">
-      <TrainingsPlanItem
-        title={loaderData.userId}
-        day_number={1}
-        day="Monday"
-        exercises={[{ "name": "Push-ups", "type": "repetition", "reps": 15, "description": "Perform 15 push-ups with proper form" }, { "name": "Pull-ups", "type": "repetition", "reps": 10, "description": "Complete 10 pull-ups or assisted pull-ups" }, { "name": "Plank", "type": "time", "duration_sec": 60, "description": "Hold plank position for 60 seconds" }, { "name": "Bench Press", "type": "weighted repetition", "reps": 8, "weight": 75.0, "description": "Perform 8 reps of bench press with 75kg load" }]}
-      />
-    </div>
+interface Exercise {
+  name: string;
+  type: string;
+  reps?: number | null;
+  weight?: number | null;
+  duration_sec?: number | null;
+  description: string;
+}
 
+interface WorkoutDay {
+  day: string;
+  day_number: number;
+  sets: {
+    name: string;
+    reps: number | null;
+    weight: number | null;
+    duration_sec: number | null;
+    exercise: {
+      name: string;
+      instructions: string[];
+    };
+  }[];
+  is_rest_day: boolean;
+}
+
+interface Workout {
+  weekly_plan: WorkoutDay[];
+}
+
+interface LoaderData {
+  user_id: string;
+  workouts: Workout[];
+}
+
+export default function Home({ loaderData }: { loaderData: LoaderData }) {
+  const response = JSON.stringify(loaderData);
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {loaderData.workouts[0].weekly_plan.map((day: WorkoutDay, index: number) => {
+        // 💤 Skip rest days
+        if (day.is_rest_day) return null;
+
+        // 🏋️ Convert sets into properly formatted exercises
+        const exercises: Exercise[] = day.sets.map((set) => ({
+          name: set.exercise.name,
+          type: set.weight
+            ? "weighted repetition"
+            : set.duration_sec
+            ? "time"
+            : "repetition",
+          reps: set.reps,
+          weight: set.weight,
+          duration_sec: set.duration_sec,
+          description: set.exercise.instructions.join(" "),
+        }));
+
+        return (
+          <div key={index} className="flex justify-center items-center">
+            <TrainingsPlanItem
+              title={day.day}
+              day_number={day.day_number}
+              day={day.day}
+              exercises={exercises}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }
