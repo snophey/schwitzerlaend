@@ -16,7 +16,9 @@ import { Form } from "react-router";
 import { WeekdaySelector } from "~/components/weekday-select/WeekdaySelect";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import { useState } from "react";
-import { Textarea } from '@mantine/core';
+import { Textarea } from "@mantine/core";
+import { getSession } from "~/sessions.server";
+import { TbInfoSquare } from "react-icons/tb";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -26,6 +28,8 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
+  const session = await getSession(request.headers.get("Cookie"));
+  console.log("Logged in as: " + session.get("userId"));
   console.log("Form submitted");
   console.log(await request.formData());
 }
@@ -44,7 +48,9 @@ export default function OnboardingForm() {
             gap="md"
             display={step === 1 ? "block" : "none"}
           >
-            <Title mb="lg" order={2}>Your training sessions</Title>
+            <Title mb="lg" order={2}>
+              Your training sessions
+            </Title>
             <Text size="sm">
               How many training sessions would you like to have per week?
             </Text>
@@ -60,9 +66,16 @@ export default function OnboardingForm() {
               </Title>
               <WeekdaySelector prefix="strength-" />
             </Stack>
-            <Alert variant="light" color="red" mt="md" style={{ textAlign: "left" }}>
-              Plan your training days with recovery in mind! If your muscles feel tired or sore,
-              give your body time to rest. Recovery is where progress happens.
+            <Alert
+              variant="light"
+              color="red"
+              mt="md"
+              style={{ textAlign: "left" }}
+            >
+              <TbInfoSquare />
+              Plan your training days with recovery in mind! If your muscles
+              feel tired or sore, give your body time to rest. Recovery is where
+              progress happens.
             </Alert>
           </Stack>
           <Stack
@@ -70,7 +83,9 @@ export default function OnboardingForm() {
             gap="md"
             display={step === 2 ? "block" : "none"}
           >
-            <Title order={2} mb={"lg"}>Your skill level</Title>
+            <Title order={2} mb={"lg"}>
+              Your skill level
+            </Title>
             <Text size="sm">
               How advanced are you? Briefly describe your current skill level in
               your sport.
@@ -97,10 +112,10 @@ export default function OnboardingForm() {
             gap="md"
             display={step === 3 ? "block" : "none"}
           >
-            <Title order={2} mb={"lg"}>Your goals</Title>
-            <Text size="sm">
-              What are the main goal of your training?
-            </Text>
+            <Title order={2} mb={"lg"}>
+              Your goals
+            </Title>
+            <Text size="sm">What are the main goal of your training?</Text>
             <Textarea
               style={{ textAlign: "left" }}
               mt={"md"}
@@ -123,7 +138,9 @@ export default function OnboardingForm() {
             gap="md"
             display={step === 4 ? "block" : "none"}
           >
-            <Title order={2} mb={"lg"}>Anything we should know about your body</Title>
+            <Title order={2} mb={"lg"}>
+              Anything we should know about your body
+            </Title>
             <Text size="sm">
               Your plan will adapt to keep you safe and progressing.
             </Text>
@@ -137,9 +154,21 @@ export default function OnboardingForm() {
             />
           </Stack>
           <Group justify="space-between" mt="auto" mb="md">
-            {step > 1 && <Backbutton onClick={() => setStep(step - 1)} text="Back" />}
-            {step < 4 && <NextButton onClick={() => setStep(step + 1)} text="Next" />}
-            {step === 4 && <NextButton type="submit" onClick={() => {}} text="Begin"/>}
+            {step > 1 && (
+              <Backbutton onClick={() => setStep(step - 1)} text="Back" />
+            )}
+            {step < 4 && (
+              <NextButton
+                style={{
+                  marginLeft: "auto",
+                }}
+                onClick={() => setStep(step + 1)}
+                text="Next"
+              />
+            )}
+            {step === 4 && (
+              <NextButton type="submit" onClick={() => {}} text="Begin" />
+            )}
           </Group>
         </Stack>
         <Button type="submit" fullWidth mt="xl">
