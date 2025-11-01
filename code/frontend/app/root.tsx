@@ -14,6 +14,7 @@ import {
   MantineProvider,
   mantineHtmlProps,
 } from "@mantine/core";
+import { theme } from "./theme";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -41,7 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <MantineProvider>{children}</MantineProvider>
+        <MantineProvider theme={theme}>{children}</MantineProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
