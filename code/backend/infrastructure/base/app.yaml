@@ -36,6 +36,10 @@ spec:
         run: app
         app: app
     spec:
+      volumes:
+        - name: secrets
+          secret:
+            secretName: mongo-cert
       imagePullSecrets:
         - name: regcred
       containers:
@@ -56,6 +60,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /usr/share/app/data
+            - name: mongo-cert
+              mountPath: /app/secrets
   volumeClaimTemplates:
     - metadata:
         name: data
