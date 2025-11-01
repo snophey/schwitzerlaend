@@ -131,6 +131,8 @@ async def root():
         "message": "Welcome to the Workouts API",
         "endpoints": [
             "POST /workouts/generate - Generate a workout using AI from a prompt",
+            "POST /users/{user_id} - Create a new user",
+            "GET /users/{user_id} - Get user information by user_id",
             "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user"
         ]
     }
@@ -150,6 +152,105 @@ def get_collection_name():
     
     # Otherwise use the first collection
     return collections[0]
+
+@app.post("/users/{user_id}", response_model=Dict[str, Any])
+async def create_user(user_id: str):
+    """
+    Create a new user.
+    
+    - **user_id**: Unique identifier for the user
+    
+    Returns the created user data with associated_workout_ids set to null by default.
+    """
+    logger.info(f"POST /users/{user_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot create user")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for users
+        users_collection = db["users"]
+        
+        # Check if user already exists
+        existing_user = users_collection.find_one({'_id': user_id})
+        if existing_user:
+            logger.warning(f"User with user_id '{user_id}' already exists")
+            raise HTTPException(
+                status_code=409,
+                detail=f"User with user_id '{user_id}' already exists. Cannot create duplicate user."
+            )
+        
+        # Create user document with associated_workout_ids set to empty list
+        user_doc = {
+            '_id': user_id,
+            'associated_workout_ids': []
+        }
+        
+        # Insert user into database
+        result = users_collection.insert_one(user_doc)
+        
+        if result.inserted_id:
+            logger.info(f"Successfully created user with user_id: {user_id} (ID: {result.inserted_id})")
+        else:
+            logger.error("Failed to insert user document")
+            raise HTTPException(status_code=500, detail="Failed to create user")
+        
+        # Return the created user data
+        return {
+            "user_id": user_id,
+            "associated_workout_ids": []
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user with user_id '{user_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+@app.get("/users/{user_id}", response_model=Dict[str, Any])
+async def get_user(user_id: str):
+    """
+    Get user information by user_id.
+    
+    - **user_id**: Unique identifier for the user
+    
+    Returns the user data including user_id and associated_workout_ids.
+    """
+    logger.info(f"GET /users/{user_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get user")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for users
+        users_collection = db["users"]
+        
+        # Find user by user_id
+        user_doc = users_collection.find_one({'_id': user_id})
+        
+        if not user_doc:
+            logger.warning(f"User with user_id '{user_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"User with user_id '{user_id}' not found"
+            )
+        
+        # Format response (exclude MongoDB _id, use user_id instead)
+        user_data = {
+            "user_id": user_doc.get('_id', user_id),
+            "associated_workout_ids": user_doc.get('associated_workout_ids', [])
+        }
+        
+        logger.info(f"Successfully retrieved user with user_id: {user_id}")
+        return user_data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving user with user_id '{user_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
 
 @app.post("/workouts/generate", response_model=Dict[str, Any])
 async def generate_workout(request: GenerateWorkoutRequest):
