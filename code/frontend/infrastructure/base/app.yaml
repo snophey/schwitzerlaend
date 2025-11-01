@@ -11,8 +11,6 @@ spec:
       protocol: TCP
       targetPort: 3000
   selector:
-    run: app
-    app: app
     role: frontend
   sessionAffinity: None
   type: ClusterIP
@@ -23,21 +21,15 @@ kind: StatefulSet
 metadata:
   name: app
   labels:
-    run: app
-    app: app
     role: frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: app
-      app: app
       role: frontend
   template:
     metadata:
       labels:
-        run: app
-        app: app
         role: frontend
     spec:
       imagePullSecrets:

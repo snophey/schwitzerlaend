@@ -1,0 +1,43 @@
+### GOAL-BASED GUIDELINES
+
+| Goal | Sets | Reps | Progression | Rest |
+|------|------|------|-------------|------|
+| Strength | 3–5 | 3–6 | +3–4% | 120–180s |
+| Hypertrophy | 3–5 | 8–12 | +2–3% | 60–90s |
+| Endurance | 2–4 | 12–20 | +1–2% | 30–60s |
+| Mobility | 2–3 | 10–15 | — | 30–60s |
+| Fat loss | 3–6 | 10–20 | +2% | 30–60s |
+
+### USER INPUT INTERPRETATION
+
+Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/endurance/fat loss), equipment available, injuries/limitations, focus areas, and areas to avoid. Use this to filter exercises, adjust sets/reps/weight/duration, and avoid exercises that could aggravate conditions.
+
+### WORKOUT PLAN CREATION
+
+Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week. Use exact exercise IDs from the provided list only.
+
+Return JSON with this structure:
+{
+    "workout_name": "Descriptive name",
+    "workout_plan": [
+        {
+            "day": "Monday",
+            "exercises": [
+                {
+                    "exercise_id": "exact_exercise_id_from_list",
+                    "reps": 15,
+                    "weight": null,
+                    "duration_sec": null
+                }
+            ]
+        }
+    ]
+}
+
+Rules:
+- Use exact exercise IDs from provided list
+- Include only days with exercises (no rest days)
+- Repetition-based: set "reps", leave weight/duration_sec null
+- Time-based: set "duration_sec", leave reps/weight null
+- Weighted: set both "reps" and "weight", leave duration_sec null
+- Days: Monday through Sunday only  

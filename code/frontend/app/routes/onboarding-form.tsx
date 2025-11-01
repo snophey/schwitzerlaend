@@ -97,6 +97,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function OnboardingForm() {
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const data = useActionData<{ error?: string; workout?: any }>();
   let [step, setStep] = useState(0);
   const [selectedSkateboardLevel, setSelectedSkateboardLevel] = useState<string>("");
@@ -126,7 +127,8 @@ export default function OnboardingForm() {
             </Title>
             <Text size="sm">Which sport do you want to train?</Text>
 
-            <Cards />
+            <Cards onSelect={setSelectedSports} selected={selectedSports} />
+
             <Textarea
               style={{ textAlign: "center" }}
               mt={"md"}
@@ -149,18 +151,16 @@ export default function OnboardingForm() {
             <Text size="sm">
               How many training sessions would you like to have per week?
             </Text>
-            <Stack align="flex-start" gap="sm">
-              <Title order={3} size={"sm"} mt={"lg"}>
-                Skateboard
-              </Title>
-              <WeekdaySelector prefix="skateboard-" />
-            </Stack>
-            <Stack align="flex-start" gap="sm" mt={"lg"}>
-              <Title order={3} size={"sm"}>
-                Strength
-              </Title>
-              <WeekdaySelector prefix="strength-" />
-            </Stack>
+
+            {selectedSports.map((sport) => (
+              <Stack align="flex-start" gap="sm" key={sport}>
+                <Title order={3} size="sm" mt="lg">
+                  {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                </Title>
+                <WeekdaySelector prefix={`${sport.toLowerCase()}-`} />
+              </Stack>
+            ))}
+
             <Alert
               variant="light"
               color="red"
@@ -237,22 +237,18 @@ export default function OnboardingForm() {
               Your goals
             </Title>
             <Text size="sm">What are the main goal of your training?</Text>
-            <Textarea
-              style={{ textAlign: "left" }}
-              mt={"md"}
-              variant="filled"
-              label="Skateboard"
-              name="goals-skateboard"
-              placeholder="For example, what skills are you trying to master?"
-            />
-            <Textarea
-              style={{ textAlign: "left" }}
-              mt={"md"}
-              variant="filled"
-              label="Strength"
-              name="goals-strength"
-              placeholder="For example, are you training for strength or hypertrophy?"
-            />
+
+            {selectedSports.map((sport) => (
+              <Textarea
+                key={sport}
+                style={{ textAlign: "left" }}
+                mt="md"
+                variant="filled"
+                name={`goals-${sport.toLowerCase()}`}
+                label={sport.charAt(0).toUpperCase() + sport.slice(1)}
+                placeholder={`Describe your goals for ${sport}`}
+              />
+            ))}
           </Stack>
 
           {/* --- Body condition ---*/}
