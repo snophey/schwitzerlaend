@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from bson import ObjectId
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
 import os
 import logging
@@ -54,40 +54,132 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Workouts API",
-    description="API for retrieving workout information",
-    lifespan=lifespan
+    description="""
+    A comprehensive REST API for managing workout plans, exercises, sets, and users.
+    
+    ## Features
+    
+    * **User Management**: Create, retrieve, and delete users
+    * **Workout Management**: Create, retrieve, and delete workout plans
+    * **Set Management**: Create, retrieve, and delete exercise sets
+    * **AI-Powered Generation**: Generate custom workout plans using OpenAI
+    * **Weekly Overview**: Get detailed weekly workout schedules for users
+    
+    ## Collections
+    
+    The API uses MongoDB with the following collections:
+    - **users**: User accounts and their associated workout IDs
+    - **workouts**: Workout plans with day-by-day schedules
+    - **sets**: Exercise sets with reps, weight, and duration
+    - **exercises**: Exercise definitions and details
+    """,
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # Request models
 class Exercise(BaseModel):
-    type: str  # 'repetition', 'weighted repetition', 'time', 'distance', 'skill'
-    reps: Optional[int] = None
-    weight: Optional[float] = None
-    duration_sec: Optional[int] = None
-    # distance_m: Optional[int] = None
-    skill: Optional[str] = None
-    description: str
+    """Exercise model for workout generation."""
+    type: str = Field(..., description="Type of exercise: 'repetition', 'weighted repetition', 'time', 'distance', or 'skill'", example="repetition")
+    reps: Optional[int] = Field(None, description="Number of repetitions (for repetition, weighted repetition, or skill types)", example=10)
+    weight: Optional[float] = Field(None, description="Weight in kg (for weighted repetition type)", example=20.5)
+    duration_sec: Optional[int] = Field(None, description="Duration in seconds (for time type)", example=60)
+    skill: Optional[str] = Field(None, description="Skill description (for skill type)", example="Balance hold")
+    description: str = Field(..., description="Detailed description of how to perform the exercise", example="Perform push-ups with proper form, keeping your back straight")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "type": "repetition",
+                "reps": 15,
+                "description": "Perform 15 push-ups with proper form"
+            }
+        }
 
 class AddWorkoutRequest(BaseModel):
-    workout_name: str
-    exercises: Optional[Dict[str, Exercise]] = None  # Optional: exercise_name -> Exercise
+    """Request model for adding a workout manually."""
+    workout_name: str = Field(..., description="Name of the workout", example="Morning Yoga")
+    exercises: Optional[Dict[str, Exercise]] = Field(None, description="Dictionary of exercise names mapped to Exercise objects")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "workout_name": "Morning Yoga",
+                "exercises": {
+                    "Downward Dog": {
+                        "type": "time",
+                        "duration_sec": 60,
+                        "description": "Hold downward dog pose for 60 seconds"
+                    }
+                }
+            }
+        }
 
 class GenerateWorkoutRequest(BaseModel):
-    prompt: str
+    """Request model for AI-powered workout generation."""
+    prompt: str = Field(..., description="Natural language description of the desired workout", example="I want soft yoga mainly stretching mid efforts")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "prompt": "I want a full body strength workout with 5 exercises"
+            }
+        }
 
 class CreateSetRequest(BaseModel):
-    name: str
-    exercise_id: str  # Note: using exercise_id (will also accept excersise_id typo from existing data)
-    reps: Optional[int] = None
-    weight: Optional[float] = None
-    duration_sec: Optional[int] = None
+    """Request model for creating an exercise set."""
+    name: str = Field(..., description="Name of the set", example="Push-ups Set 1")
+    exercise_id: str = Field(..., description="ID of the exercise this set references", example="push_up_001")
+    reps: Optional[int] = Field(None, description="Number of repetitions", example=15)
+    weight: Optional[float] = Field(None, description="Weight in kg", example=0.0)
+    duration_sec: Optional[int] = Field(None, description="Duration in seconds", example=60)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Push-ups Set 1",
+                "exercise_id": "push_up_001",
+                "reps": 15,
+                "weight": None,
+                "duration_sec": None
+            }
+        }
 
 class DayPlan(BaseModel):
-    day: str  # e.g., "Monday", "Tuesday", etc.
-    exercises_ids: List[str]  # List of set IDs
+    """Day plan model for workout schedules."""
+    day: str = Field(..., description="Day of the week", example="Monday")
+    exercises_ids: List[str] = Field(..., description="List of set IDs for this day", example=["set_1", "set_2", "set_3"])
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "day": "Monday",
+                "exercises_ids": ["1", "2", "3"]
+            }
+        }
 
 class CreateWorkoutRequest(BaseModel):
-    workout_plan: List[DayPlan]  # Array of day plans, each with day and exercises_ids
+    """Request model for creating a workout plan."""
+    workout_plan: List[DayPlan] = Field(..., description="Array of day plans, each with day and exercises_ids")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "workout_plan": [
+                    {
+                        "day": "Monday",
+                        "exercises_ids": ["1", "2", "3"]
+                    },
+                    {
+                        "day": "Wednesday",
+                        "exercises_ids": ["3"]
+                    }
+                ]
+            }
+        }
 
 def connect_to_mongodb():
     """Connect to MongoDB using X509 certificate authentication."""
@@ -177,7 +269,7 @@ def get_collection_name():
     # Otherwise use the first collection
     return collections[0]
 
-@app.post("/users/{user_id}", response_model=Dict[str, Any])
+@app.post("/users/{user_id}", response_model=Dict[str, Any], tags=["Users"])
 async def create_user(user_id: str):
     """
     Create a new user.
@@ -232,7 +324,7 @@ async def create_user(user_id: str):
         logger.error(f"Error creating user with user_id '{user_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
 
-@app.get("/users/{user_id}", response_model=Dict[str, Any])
+@app.get("/users/{user_id}", response_model=Dict[str, Any], tags=["Users"])
 async def get_user(user_id: str):
     """
     Get user information by user_id.
@@ -276,7 +368,7 @@ async def get_user(user_id: str):
         logger.error(f"Error retrieving user with user_id '{user_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
 
-@app.delete("/users/{user_id}", response_model=Dict[str, Any])
+@app.delete("/users/{user_id}", response_model=Dict[str, Any], tags=["Users"])
 async def delete_user(user_id: str):
     """
     Delete a user by user_id.
@@ -323,7 +415,7 @@ async def delete_user(user_id: str):
         logger.error(f"Error deleting user with user_id '{user_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
-@app.post("/sets/", response_model=Dict[str, Any])
+@app.post("/sets/", response_model=Dict[str, Any], tags=["Sets"])
 async def create_set(request: CreateSetRequest):
     """
     Create a new set consisting of exercises.
@@ -390,7 +482,7 @@ async def create_set(request: CreateSetRequest):
         logger.error(f"Error creating set: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create set: {str(e)}")
 
-@app.get("/sets/{set_id}", response_model=Dict[str, Any])
+@app.get("/sets/{set_id}", response_model=Dict[str, Any], tags=["Sets"])
 async def get_set(set_id: str):
     """
     Get set information by set_id.
@@ -441,7 +533,7 @@ async def get_set(set_id: str):
         logger.error(f"Error retrieving set with set_id '{set_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get set: {str(e)}")
 
-@app.delete("/sets/{set_id}", response_model=Dict[str, Any])
+@app.delete("/sets/{set_id}", response_model=Dict[str, Any], tags=["Sets"])
 async def delete_set(set_id: str):
     """
     Delete a set by set_id.
@@ -488,7 +580,7 @@ async def delete_set(set_id: str):
         logger.error(f"Error deleting set with set_id '{set_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete set: {str(e)}")
 
-@app.post("/workouts/", response_model=Dict[str, Any])
+@app.post("/workouts/", response_model=Dict[str, Any], tags=["Workouts"])
 async def create_workout(request: CreateWorkoutRequest):
     """
     Create a new workout consisting of sets.
@@ -556,7 +648,7 @@ async def create_workout(request: CreateWorkoutRequest):
         logger.error(f"Error creating workout: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create workout: {str(e)}")
 
-@app.get("/workouts/{workout_id}", response_model=Dict[str, Any])
+@app.get("/workouts/{workout_id}", response_model=Dict[str, Any], tags=["Workouts"])
 async def get_workout(workout_id: str):
     """
     Get workout information by workout_id.
@@ -600,7 +692,7 @@ async def get_workout(workout_id: str):
         logger.error(f"Error retrieving workout with workout_id '{workout_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get workout: {str(e)}")
 
-@app.delete("/workouts/{workout_id}", response_model=Dict[str, Any])
+@app.delete("/workouts/{workout_id}", response_model=Dict[str, Any], tags=["Workouts"])
 async def delete_workout(workout_id: str):
     """
     Delete a workout by workout_id.
@@ -647,7 +739,7 @@ async def delete_workout(workout_id: str):
         logger.error(f"Error deleting workout with workout_id '{workout_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete workout: {str(e)}")
 
-@app.post("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any])
+@app.post("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any], tags=["User Workouts"])
 async def add_workout_to_user(user_id: str, workout_id: str):
     """
     Add a workout ID to the user's associated_workout_ids list.
@@ -729,7 +821,7 @@ async def add_workout_to_user(user_id: str, workout_id: str):
         logger.error(f"Error adding workout to user: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to add workout to user: {str(e)}")
 
-@app.delete("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any])
+@app.delete("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any], tags=["User Workouts"])
 async def remove_workout_from_user(user_id: str, workout_id: str):
     """
     Remove a workout ID from the user's associated_workout_ids list.
@@ -801,7 +893,7 @@ async def remove_workout_from_user(user_id: str, workout_id: str):
         logger.error(f"Error removing workout from user: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to remove workout from user: {str(e)}")
 
-@app.post("/workouts/generate", response_model=Dict[str, Any])
+@app.post("/workouts/generate", response_model=Dict[str, Any], tags=["AI Workouts"])
 async def generate_workout(request: GenerateWorkoutRequest):
     """
     Generate a workout using OpenAI based on a natural language prompt.
@@ -1019,7 +1111,7 @@ Example:
         logger.error(f"Error generating workout: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate workout: {str(e)}")
 
-@app.get("/users/{user_id}/weekly-overview", response_model=Dict[str, Any])
+@app.get("/users/{user_id}/weekly-overview", response_model=Dict[str, Any], tags=["User Workouts"])
 async def get_weekly_overview(user_id: str):
     """
     Get weekly workout overview for a specific user.
