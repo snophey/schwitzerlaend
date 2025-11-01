@@ -15,6 +15,7 @@ import Cards from "~/components/Cards";
 import { useSession } from "~/sessionProvider";
 import { Link } from "react-router";
 import BackButton from "~/components/BackButton";
+import logo from "assets/img/logo.svg"
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -36,7 +37,7 @@ export default function Onboarding() {
         {/* Logo */}
         <div>
           <Image
-            src="/../assets/img/logo.svg"
+            src={logo}
             alt="Schwitzerland logo"
             w={72}
             mx="auto"
