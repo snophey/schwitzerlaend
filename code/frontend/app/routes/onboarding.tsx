@@ -15,7 +15,7 @@ import Cards from "~/components/Cards";
 import { useSession } from "~/sessionProvider";
 import { Link } from "react-router";
 import BackButton from "~/components/BackButton";
-import logo from "assets/img/logo.svg"
+import logo from "assets/img/logo.svg";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -31,9 +31,6 @@ export default function Onboarding() {
   return (
     <PageWrapper>
       <Stack align="center" gap="md">
-        {/* Logo */}
-        <p className="text-red-500">Hallo User {session.userId}</p>
-
         {/* Logo */}
         <div>
           <Image
