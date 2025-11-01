@@ -1,7 +1,8 @@
 """User-related API endpoints."""
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import logging
+import sys
 from models import GenerateWorkoutRequest
 from database import get_database
 from bson import ObjectId
@@ -9,9 +10,163 @@ import os
 import json
 from openai import OpenAI
 
+# Set up logger to ensure it outputs to console
 logger = logging.getLogger(__name__)
+# Ensure logger propagates to root logger (which has basicConfig from main.py)
+logger.propagate = True
+# Set level to INFO to match basicConfig
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
+
+# MongoDB Atlas Search configuration
+SEARCH_INDEX_NAME = "exercises_prod"
+SEARCH_PATHS = ["name", "instructions", "primaryMuscles", "secondaryMuscles", "equipment", "category"]
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+async def generate_search_keywords(prompt: str, openai_client) -> str:
+    """Generate search keywords from user prompt using LLM."""
+    logger.info(f"Starting LLM keyword generation for prompt: {prompt[:100]}...")
+    try:
+        keyword_prompt = f"""Given this fitness goal: "{prompt}"
+
+Generate 5-10 relevant search keywords or key phrases that would help find appropriate exercises in a fitness database. Focus on:
+- Exercise types (e.g., "push up", "squat", "stretching")
+- Muscle groups (e.g., "chest", "legs", "abs")
+- Equipment (e.g., "dumbbells", "bodyweight", "resistance bands")
+- Categories (e.g., "strength", "cardio", "flexibility")
+
+Return ONLY a space-separated string of keywords, no additional text or explanation.
+Example output: "push ups chest strength bodyweight upper body" """
+
+        logger.info("Calling OpenAI API for keyword generation...")
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a fitness search assistant. Generate concise, relevant search keywords."},
+                {"role": "user", "content": keyword_prompt}
+            ],
+            temperature=0.5,
+            max_tokens=100
+        )
+        
+        keywords = response.choices[0].message.content.strip()
+        logger.info(f"✅ LLM successfully generated search keywords: '{keywords}'")
+        return keywords
+    except Exception as e:
+        logger.error(f"❌ Failed to generate keywords with LLM: {e}", exc_info=True)
+        logger.warning(f"Falling back to original prompt for search")
+        return prompt
+
+
+def search_exercises_all_fields(collection, query_text: str, limit: int = 100):
+    """Search exercises across all fields using MongoDB Atlas Search."""
+    logger.debug(f"🔍 Executing search_all_fields with query: '{query_text}', limit: {limit}")
+    try:
+        pipeline = [
+            {
+                "$search": {
+                    "index": SEARCH_INDEX_NAME,
+                    "text": {
+                        "query": query_text,
+                        "path": SEARCH_PATHS,
+                        "fuzzy": {"maxEdits": 2, "prefixLength": 2}
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "name": 1,
+                    "category": 1,
+                    "equipment": 1,
+                    "primaryMuscles": 1,
+                    "secondaryMuscles": 1,
+                    "level": 1,
+                    "instructions": 1,
+                    "score": {"$meta": "searchScore"}
+                }
+            },
+            {"$sort": {"score": -1}},
+            {"$limit": limit}
+        ]
+        results = list(collection.aggregate(pipeline))
+        logger.debug(f"✅ search_all_fields returned {len(results)} results")
+        return results
+    except Exception as e:
+        logger.error(f"❌ MongoDB search_all_fields failed: {e}", exc_info=True)
+        logger.warning("Falling back to regular query")
+        return []
+
+
+def search_exercises_with_filters(collection, query_text: str, filters: Optional[Dict] = None, limit: int = 100):
+    """Search exercises with filters (equipment, category, muscles, etc.)."""
+    logger.debug(f"🔍 Executing search_with_filters - query: '{query_text}', filters: {filters}, limit: {limit}")
+    try:
+        must = []
+        filter_clauses = []
+
+        if query_text:
+            must.append({
+                "text": {
+                    "query": query_text,
+                    "path": SEARCH_PATHS,
+                    "fuzzy": {"maxEdits": 2, "prefixLength": 2}
+                }
+            })
+
+        if filters:
+            for field, values in filters.items():
+                if values:
+                    if isinstance(values, list):
+                        values = ' '.join(values)
+                    filter_clauses.append({
+                        "text": {
+                            "query": values,
+                            "path": field
+                        }
+                    })
+
+        compound = {}
+        if must:
+            compound["must"] = must
+        if filter_clauses:
+            compound["filter"] = filter_clauses
+
+        if not compound:
+            return []
+
+        pipeline = [
+            {
+                "$search": {
+                    "index": SEARCH_INDEX_NAME,
+                    "compound": compound
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "name": 1,
+                    "category": 1,
+                    "equipment": 1,
+                    "primaryMuscles": 1,
+                    "secondaryMuscles": 1,
+                    "level": 1,
+                    "instructions": 1,
+                    "score": {"$meta": "searchScore"}
+                }
+            },
+            {"$sort": {"score": -1}},
+            {"$limit": limit}
+        ]
+        results = list(collection.aggregate(pipeline))
+        logger.debug(f"✅ search_with_filters returned {len(results)} results")
+        return results
+    except Exception as e:
+        logger.error(f"❌ MongoDB search_with_filters failed: {e}", exc_info=True)
+        logger.warning("Falling back to regular query")
+        return []
 
 
 @router.post("/{user_id}", response_model=Dict[str, Any])
@@ -497,7 +652,11 @@ async def generate_workout_for_user(user_id: str, request: GenerateWorkoutReques
     
     Returns the created workout with workout_id and summary.
     """
-    logger.info(f"POST /users/{user_id}/generate-workout endpoint called")
+    print(f"[USERS.PY] POST /users/{user_id}/generate-workout endpoint called - Prompt: {request.prompt[:100]}...")
+    logger.info("="*80)
+    logger.info(f"🚀 POST /users/{user_id}/generate-workout endpoint called")
+    logger.info(f"📝 User prompt: {request.prompt}")
+    logger.info("="*80)
     
     db = get_database()
     if db is None:
@@ -526,80 +685,194 @@ async def generate_workout_for_user(user_id: str, request: GenerateWorkoutReques
         openai_client = OpenAI(api_key=api_key)
         
         exercises_collection = db["exercises"]
-        logger.info("Fetching exercises from database...")
-        exercise_docs = list(exercises_collection.find().limit(300))
         
-        if not exercise_docs:
+        # Generate search keywords using LLM
+        logger.info("="*60)
+        logger.info("STEP 1: Generating search keywords with LLM")
+        logger.info("="*60)
+        search_keywords = await generate_search_keywords(request.prompt, openai_client)
+        logger.info(f"📝 Final search keywords to use: '{search_keywords}'")
+        
+        # Query 1: Initial search based on keywords
+        logger.info("="*60)
+        logger.info("STEP 2: Performing initial MongoDB Atlas search")
+        logger.info("="*60)
+        logger.info(f"🔍 Searching with keywords: '{search_keywords}' (limit: 200)")
+        initial_results = search_exercises_all_fields(exercises_collection, search_keywords, limit=50)
+        logger.info(f"📊 Initial search returned {len(initial_results) if initial_results else 0} results")
+        
+        # If search fails or returns few results, fall back to regular query
+        if not initial_results or len(initial_results) < 10:
+            logger.warning(f"⚠️  Search returned {len(initial_results) if initial_results else 0} results (< 10), falling back to regular query")
+            logger.info("Fetching exercises using regular MongoDB query (limit: 300)...")
+            exercise_docs = list(exercises_collection.find().limit(300))
+            logger.info(f"✅ Regular query found {len(exercise_docs)} exercises")
+            exercise_summaries = []
+            exercises_map = {}
+            for exercise_doc in exercise_docs:
+                exercise_id = exercise_doc.get('_id', '')
+                exercise_summary = {
+                    "id": str(exercise_id),
+                    "name": exercise_doc.get("name", ""),
+                    "category": exercise_doc.get("category", ""),
+                    "equipment": exercise_doc.get("equipment", ""),
+                    "primaryMuscles": exercise_doc.get("primaryMuscles", []),
+                    "level": exercise_doc.get("level", ""),
+                    "score": None
+                }
+                exercise_summaries.append(exercise_summary)
+                exercises_map[str(exercise_id)] = exercise_doc
+        else:
+            # Use search results, sorted by score (already sorted by search)
+            logger.info(f"✅ Search found {len(initial_results)} relevant exercises")
+            logger.info("Processing search results and extracting exercise data...")
+            exercise_summaries = []
+            exercises_map = {}
+            
+            for idx, exercise_doc in enumerate(initial_results, 1):
+                if idx <= 5:  # Log first 5 for debugging
+                    logger.debug(f"  Result {idx}: {exercise_doc.get('name')} (score: {exercise_doc.get('score', 0):.4f})")
+            
+            for exercise_doc in initial_results:
+                exercise_id = exercise_doc.get('_id', '')
+                score = exercise_doc.get('score', 0)
+                exercise_summary = {
+                    "id": str(exercise_id),
+                    "name": exercise_doc.get("name", ""),
+                    "category": exercise_doc.get("category", ""),
+                    "equipment": exercise_doc.get("equipment", ""),
+                    "primaryMuscles": exercise_doc.get("primaryMuscles", []),
+                    "level": exercise_doc.get("level", ""),
+                    "score": round(score, 4) if score else None
+                }
+                exercise_summaries.append(exercise_summary)
+                exercises_map[str(exercise_id)] = exercise_doc
+            
+            # Query 2: Try to refine search with filters if we can detect them
+            # Use LLM to extract equipment, category, muscle groups from prompt
+            logger.info("="*60)
+            logger.info("STEP 3: Extracting filters and performing refined search")
+            logger.info("="*60)
+            try:
+                logger.info("Calling LLM to extract equipment, category, and muscle groups...")
+                extraction_prompt = f"""Extract the following information from this fitness goal: "{request.prompt}"
+
+Return a JSON object with:
+- equipment: list of equipment mentioned (e.g., ["dumbbells", "body only"])
+- category: list of categories mentioned (e.g., ["strength", "cardio", "stretching"])
+- muscles: list of muscle groups mentioned (e.g., ["chest", "legs", "abs"])
+- level: user level if mentioned (e.g., "beginner", "intermediate", "advanced")
+
+If nothing is mentioned for a field, return an empty list or null. Return ONLY valid JSON."""
+
+                extraction_response = openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a fitness data extraction assistant. Extract information from user queries and return only valid JSON."},
+                        {"role": "user", "content": extraction_prompt}
+                    ],
+                    temperature=0.3,
+                    response_format={"type": "json_object"}
+                )
+                
+                extraction_data = json.loads(extraction_response.choices[0].message.content)
+                logger.info(f"✅ LLM extracted filters: {json.dumps(extraction_data, indent=2)}")
+                filters = {}
+                
+                if extraction_data.get("equipment"):
+                    filters["equipment"] = extraction_data["equipment"]
+                if extraction_data.get("category"):
+                    filters["category"] = extraction_data["category"]
+                if extraction_data.get("muscles"):
+                    # Search in primary and secondary muscles
+                    muscle_query = ' '.join(extraction_data["muscles"])
+                    logger.info(f"🔍 Performing refined search with muscle query: '{muscle_query}'")
+                    refined_results = search_exercises_with_filters(
+                        exercises_collection, 
+                        muscle_query,
+                        {"primaryMuscles": muscle_query},
+                        limit=150
+                    )
+                    
+                    if refined_results and len(refined_results) > 0:
+                        logger.info(f"✅ Refined search with muscle filters found {len(refined_results)} exercises")
+                        # Merge refined results with initial results, prioritizing by score
+                        refined_ids = {str(r.get('_id')): r for r in refined_results}
+                        # Update existing summaries with refined scores
+                        for summary in exercise_summaries:
+                            ex_id = summary["id"]
+                            if ex_id in refined_ids:
+                                refined_score = refined_ids[ex_id].get('score', 0)
+                                summary["score"] = round(refined_score, 4) if refined_score else summary.get("score")
+                        
+                        # Add new exercises from refined search
+                        for refined_doc in refined_results:
+                            ex_id = str(refined_doc.get('_id'))
+                            if ex_id not in exercises_map:
+                                score = refined_doc.get('score', 0)
+                                exercise_summary = {
+                                    "id": ex_id,
+                                    "name": refined_doc.get("name", ""),
+                                    "category": refined_doc.get("category", ""),
+                                    "equipment": refined_doc.get("equipment", ""),
+                                    "primaryMuscles": refined_doc.get("primaryMuscles", []),
+                                    "level": refined_doc.get("level", ""),
+                                    "score": round(score, 4) if score else None
+                                }
+                                exercise_summaries.append(exercise_summary)
+                                exercises_map[ex_id] = refined_doc
+                
+                # Re-sort by score if we have scores
+                logger.info("Re-sorting exercises by relevance score...")
+                exercise_summaries.sort(key=lambda x: x.get("score") or 0, reverse=True)
+                # Limit to top 250 exercises with scores
+                exercise_summaries = [ex for ex in exercise_summaries if ex.get("score")] + [ex for ex in exercise_summaries if not ex.get("score")]
+                exercise_summaries = exercise_summaries[:250]
+                logger.info(f"✅ Final exercise list contains {len(exercise_summaries)} exercises (sorted by score)")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to extract filters or perform refined search: {e}", exc_info=True)
+                logger.info("Continuing with initial search results only")
+                # Continue with initial results
+        
+        if not exercise_summaries:
             logger.warning("No exercises found in database")
             raise HTTPException(
                 status_code=404,
                 detail="No exercises found in database. Please upload exercises first."
             )
         
-        exercise_summaries = []
-        exercises_map = {}
-        for exercise_doc in exercise_docs:
-            exercise_id = exercise_doc.get('_id', '')
-            exercise_summary = {
-                "id": str(exercise_id),
-                "name": exercise_doc.get("name", ""),
-                "category": exercise_doc.get("category", ""),
-                "equipment": exercise_doc.get("equipment", ""),
-                "primaryMuscles": exercise_doc.get("primaryMuscles", []),
-                "level": exercise_doc.get("level", ""),
-            }
-            exercise_summaries.append(exercise_summary)
-            exercises_map[str(exercise_id)] = exercise_doc
+        logger.info("="*60)
+        logger.info("STEP 4: Preparing exercises for workout generation")
+        logger.info("="*60)
+        logger.info(f"📋 Prepared {len(exercise_summaries)} exercises for LLM")
+        logger.info(f"   - Top {min(10, len(exercise_summaries))} exercise names: {[ex['name'] for ex in exercise_summaries[:10]]}")
         
-        logger.info(f"Prepared {len(exercise_summaries)} exercises for LLM")
-        
-        system_prompt = """You are a professional fitness trainer and workout planner. 
-Your task is to create a personalized workout plan based on the user's goals and the available exercises.
-
-Available exercises will be provided to you. You must select exercises from this list only (use their exact IDs).
-
-You should create a weekly workout plan that:
-1. Matches the user's fitness goals and requirements
-2. Distributes exercises across appropriate days of the week
-3. Provides appropriate reps, sets, weight, or duration for each exercise
-4. Ensures proper recovery between similar muscle groups
-5. Progresses appropriately throughout the week
-
-Return your response as a JSON object with this exact structure:
-{
-    "workout_name": "Descriptive name for the workout plan",
-    "workout_plan": [
-        {
-            "day": "Monday",
-            "exercises": [
-                {
-                    "exercise_id": "exact_exercise_id_from_list",
-                    "reps": 15,
-                    "weight": null,
-                    "duration_sec": null
-                }
-            ]
-        }
-    ]
-}
-
-Important:
-- Use exact exercise IDs from the provided list
-- Include only days that have exercises (don't include rest days)
-- For repetition-based exercises: set "reps" and leave weight/duration_sec as null
-- For time-based exercises: set "duration_sec" and leave reps/weight as null
-- For weighted exercises: set both "reps" and "weight", leave duration_sec as null
-- Days must be: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, or Sunday
-- Create a realistic, progressive workout plan (typically 3-5 days per week)
-"""
+        # Load system prompt from prompt.txt file
+        prompt_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r', encoding='utf-8') as f:
+                system_prompt = f.read()
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found at {prompt_file_path}")
+            raise HTTPException(status_code=500, detail="Prompt file not found")
+        except Exception as e:
+            logger.error(f"Error reading prompt file: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error loading prompt file: {str(e)}")
 
         user_message = f"""User's fitness goal: {request.prompt}
 
-Available exercises (select from these only):
+Available exercises (select from these only, sorted by relevance score - higher scores are more relevant):
 {json.dumps(exercise_summaries, indent=2)}
+
+Note: Exercises with higher "score" values are more relevant to the user's goal. Prioritize exercises with higher scores when creating the workout plan.
 
 Create a personalized workout plan. Return ONLY valid JSON, no additional text."""
 
+        logger.info("="*60)
+        logger.info("STEP 5: Generating workout plan with LLM")
+        logger.info("="*60)
+        logger.info("Calling OpenAI API to generate workout plan...")
         try:
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -612,9 +885,11 @@ Create a personalized workout plan. Return ONLY valid JSON, no additional text."
             )
             
             content = response.choices[0].message.content
-            logger.info("Successfully received workout plan from OpenAI")
+            logger.info("✅ Successfully received workout plan response from OpenAI")
+            logger.debug(f"Response length: {len(content)} characters")
             
             workout_plan_data = json.loads(content)
+            logger.info(f"✅ Successfully parsed workout plan JSON")
             
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response from OpenAI: {e}")

@@ -1,64 +1,43 @@
----------------------------------------------------------
-### EQUATIONS AND LOGIC FOR PLANNING
-
-**Base Load:**
-    W_target = RoundToNearest(10RM * (1 - 0.025 * (Reps_target - 10)), 2.5)
-    (Estimate starting weight from 10RM, adjusted by target reps.)
-
-**Progressive Overload:**
-    W_next = RoundToNearest(W_prev * (1 + progression_rate), 2.5)
-    progression_rate = 0.02–0.04 per week
-    (Apply only if recovery is good.)
-
-**Volume Load:**
-    Volume = Σ(Sets × Reps × Weight)
-
-**Deload:**
-    W_deload = RoundToNearest(W_prev * 0.85, 2.5)
-    Reps_deload = 0.5 × Reps_baseline
-
-**Adaptive Load (recovery feedback):**
-    Rating ≥ +1 → +2.5%
-    Rating = 0 → maintain
-    Rating ≤ -1 → −5%
-
-**1RM Estimate (optional):**
-    1RM = W × (1 + 0.0333 × Reps)
-
-**Duration Estimation:**
-    - Strength: Reps × 3–5 sec
-    - Endurance: given duration target or time under tension
-    - Circuit: sum of all exercise durations + rests
-
-**Rest Intervals:**
-    Strength: 120–180 sec  
-    Hypertrophy: 60–90 sec  
-    Endurance/Mobility: 30–60 sec  
-
----------------------------------------------------------
 ### GOAL-BASED GUIDELINES
 
-| Goal | Sets | Reps | Progression | Rest | Notes |
-|------|------|------|-------------|------|--------|
-| Strength | 3–5 | 3–6 | +3–4% | 120–180s | heavy, low reps |
-| Hypertrophy | 3–5 | 8–12 | +2–3% | 60–90s | moderate load |
-| Endurance | 2–4 | 12–20 | +1–2% | 30–60s | high reps |
-| Mobility | 2–3 | 10–15 | — | 30–60s | focus on control |
-| Fat loss | 3–6 | 10–20 | +2% | 30–60s | circuit-style |
+| Goal | Sets | Reps | Progression | Rest |
+|------|------|------|-------------|------|
+| Strength | 3–5 | 3–6 | +3–4% | 120–180s |
+| Hypertrophy | 3–5 | 8–12 | +2–3% | 60–90s |
+| Endurance | 2–4 | 12–20 | +1–2% | 30–60s |
+| Mobility | 2–3 | 10–15 | — | 30–60s |
+| Fat loss | 3–6 | 10–20 | +2% | 30–60s |
 
----------------------------------------------------------
-### USER INPUT INTERPRETATION RULES
+### USER INPUT INTERPRETATION
 
-When a user writes in plain text:
-• Detect their **level** from phrases like “beginner”, “just starting”, “advanced lifter”.
-• Detect their **goal** from words like “build muscle”, “get stronger”, “improve endurance”, “lose fat”.
-• Detect their **available equipment** from mentions like “I have dumbbells and bands” or “bodyweight only”.
-• Detect **injuries or limitations** from phrases like “bad knee”, “weak shoulder”, “tight hips”.
-• Detect **focus areas** from phrases like “want to focus on abs and legs”.
-• Detect **avoid areas** from phrases like “avoid lower back exercises”.
+Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/endurance/fat loss), equipment available, injuries/limitations, focus areas, and areas to avoid. Use this to filter exercises, adjust sets/reps/weight/duration, and avoid exercises that could aggravate conditions.
 
-Use that understanding to:
-• Filter the exercise database accordingly.  
-• Pick suitable exercises for their equipment and level.  
-• Adjust sets, reps, weight, duration, and rest according to their goal and condition.  
-• Skip or modify any exercises that could aggravate injuries or limitations.  
+### WORKOUT PLAN CREATION
+
+Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week. Use exact exercise IDs from the provided list only.
+
+Return JSON with this structure:
+{
+    "workout_name": "Descriptive name",
+    "workout_plan": [
+        {
+            "day": "Monday",
+            "exercises": [
+                {
+                    "exercise_id": "exact_exercise_id_from_list",
+                    "reps": 15,
+                    "weight": null,
+                    "duration_sec": null
+                }
+            ]
+        }
+    ]
+}
+
+Rules:
+- Use exact exercise IDs from provided list
+- Include only days with exercises (no rest days)
+- Repetition-based: set "reps", leave weight/duration_sec null
+- Time-based: set "duration_sec", leave reps/weight null
+- Weighted: set both "reps" and "weight", leave duration_sec null
+- Days: Monday through Sunday only  
