@@ -1,27 +1,48 @@
-import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
+import {
+  Button,
+  Container,
+  Stack,
+  Text,
+  Title,
+  Image,
+  Card,
+} from "@mantine/core";
 import type { Route } from "./+types/home";
-import PageWrapper from "~/components/PageWrapper";
+import PageWrapper from "~/components/PageWrapper/PageWrapper";
+import StartButton from "~/components/StartButton";
+import NextButton from "~/components/NextButton";
+import Cards from "~/components/Cards";
+import { useSession } from "~/sessionProvider";
+import { Link } from "react-router";
+import BackButton from "~/components/BackButton";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Welcome to Sweatzerländ!" },
+    { name: "description", content: "Welcome to Sweatzerländ!" },
   ];
 }
 
 // TODO: REPLACE LINK WITH ROUTE TO NEXT SCREEN
-// TODO: REFACTOR HARD-CODED STYLES T
 export default function Onboarding() {
+  const session = useSession();
+
   return (
     <PageWrapper>
       <Stack align="center" gap="md">
         {/* Logo */}
+        <p className="text-red-500">Hallo User {session.userId}</p>
+
+        {/* Logo */}
         <div>
           <Image
-            src="/logo.png" // replace with your image path
+            src="/../assets/img/logo.svg"
             alt="Schwitzerland logo"
-            w={64}
+            w={72}
             mx="auto"
+            styles={{
+              root: { transform: "translateX(-0.5em)" },
+            }}
           />
           <Text fw={600} mt="xs">
             Schwitzerland
@@ -42,16 +63,8 @@ export default function Onboarding() {
         </Text>
 
         {/* Button */}
-        <Button
-          component="a"
-          href="#"
-          color="red"
-          radius="xs"
-          size="md"
-          mt="md"
-        >
-          Let’s schwiitz
-        </Button>
+        <StartButton text="Let's schwitz" />
+        <Link to="/onboarding"></Link>
       </Stack>
     </PageWrapper>
   );

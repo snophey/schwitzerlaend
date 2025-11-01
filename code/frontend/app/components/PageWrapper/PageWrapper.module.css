@@ -1,0 +1,35 @@
+.pageWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100svh;
+    background: white;
+}
+
+.innerWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 3em auto;
+    background: white;
+    width: 30em;
+    height: auto;
+    padding: 3em 2em;
+}
+
+.contentWrapper {
+    display: block;
+    text-align: center;
+    width: 100%;
+}
+
+@media (min-width: 36em) {
+    .pageWrapper {
+        background-color: #efefef;
+    }
+
+    .innerWrapper {
+        min-height: 36em;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+}

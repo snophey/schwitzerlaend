@@ -49,6 +49,14 @@ spec:
             limits:
               memory: 1000Mi
               cpu: 2
+          env:
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: session-secrets
+                  key: SECRET
+            - name: BACKEND_URL
+              value: "http://be-app:3000"
           volumeMounts:
             - name: data
               mountPath: /usr/share/app/data

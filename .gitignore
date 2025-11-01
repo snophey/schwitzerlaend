@@ -24,3 +24,9 @@ venv.bak/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Secrets and environment files
+./code/backend/secrets/
+code/backend/.env
+*.key
+*.pem
