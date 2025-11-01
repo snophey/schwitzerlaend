@@ -13,6 +13,7 @@ spec:
   selector:
     run: app
     app: app
+    role: frontend
   sessionAffinity: None
   type: ClusterIP
 
@@ -24,17 +25,20 @@ metadata:
   labels:
     run: app
     app: app
+    role: frontend
 spec:
   replicas: 1
   selector:
     matchLabels:
       run: app
       app: app
+      role: frontend
   template:
     metadata:
       labels:
         run: app
         app: app
+        role: frontend
     spec:
       imagePullSecrets:
         - name: regcred

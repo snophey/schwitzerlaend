@@ -9,10 +9,11 @@ spec:
     - name: http
       port: 3000
       protocol: TCP
-      targetPort: 80
+      targetPort: 8000
   selector:
     run: app
     app: app
+    role: backend
   sessionAffinity: None
   type: ClusterIP
 
@@ -24,17 +25,20 @@ metadata:
   labels:
     run: app
     app: app
+    role: backend
 spec:
   replicas: 1
   selector:
     matchLabels:
       run: app
       app: app
+      role: backend
   template:
     metadata:
       labels:
         run: app
         app: app
+        role: backend
     spec:
       volumes:
         - name: mongo-cert
