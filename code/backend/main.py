@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from bson import ObjectId
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -74,6 +75,20 @@ class AddWorkoutRequest(BaseModel):
 class GenerateWorkoutRequest(BaseModel):
     prompt: str
 
+class CreateSetRequest(BaseModel):
+    name: str
+    exercise_id: str  # Note: using exercise_id (will also accept excersise_id typo from existing data)
+    reps: Optional[int] = None
+    weight: Optional[float] = None
+    duration_sec: Optional[int] = None
+
+class DayPlan(BaseModel):
+    day: str  # e.g., "Monday", "Tuesday", etc.
+    exercises_ids: List[str]  # List of set IDs
+
+class CreateWorkoutRequest(BaseModel):
+    workout_plan: List[DayPlan]  # Array of day plans, each with day and exercises_ids
+
 def connect_to_mongodb():
     """Connect to MongoDB using X509 certificate authentication."""
     logger.info(f"Attempting to connect to MongoDB Atlas cluster: {CLUSTER_HOST}")
@@ -133,7 +148,12 @@ async def root():
             "POST /workouts/generate - Generate a workout using AI from a prompt",
             "POST /users/{user_id} - Create a new user",
             "GET /users/{user_id} - Get user information by user_id",
-            "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user"
+            "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user",
+            "POST /workouts/ - Create a new workout consisting of sets",
+            "GET /workouts/{workout_id} - Get workout information by workout_id",
+            "POST /sets/ - Create a new set consisting of exercises",
+            "GET /sets/{set_id} - Get set information by set_id",
+            "POST /users/{user_id}/workouts/{workout_id} - Add a workout id to the workouts list",
         ]
     }
 
@@ -251,6 +271,318 @@ async def get_user(user_id: str):
     except Exception as e:
         logger.error(f"Error retrieving user with user_id '{user_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
+
+@app.post("/sets/", response_model=Dict[str, Any])
+async def create_set(request: CreateSetRequest):
+    """
+    Create a new set consisting of exercises.
+    
+    - **name**: Name of the set
+    - **exercise_id**: ID of the exercise this set references
+    - **reps**: Number of repetitions (optional)
+    - **weight**: Weight in kg (optional)
+    - **duration_sec**: Duration in seconds (optional)
+    
+    Returns the created set with a generated ID.
+    """
+    logger.info(f"POST /sets/ endpoint called with name: '{request.name}'")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot create set")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for sets
+        sets_collection = db["sets"]
+        
+        # Generate a new ID for the set (using ObjectId converted to string)
+        set_id = str(ObjectId())
+        
+        # Create set document
+        set_doc = {
+            '_id': set_id,
+            'name': request.name,
+            'excersise_id': request.exercise_id,  # Note: using typo to match existing data structure
+            'exercise_id': request.exercise_id,   # Also add correct spelling for future use
+        }
+        
+        # Add optional fields if provided
+        if request.reps is not None:
+            set_doc['reps'] = request.reps
+        if request.weight is not None:
+            set_doc['weight'] = request.weight
+        if request.duration_sec is not None:
+            set_doc['duration_sec'] = request.duration_sec
+        
+        # Insert set into database
+        result = sets_collection.insert_one(set_doc)
+        
+        if result.inserted_id:
+            logger.info(f"Successfully created set with ID: {result.inserted_id}")
+        else:
+            logger.error("Failed to insert set document")
+            raise HTTPException(status_code=500, detail="Failed to create set")
+        
+        # Return the created set data
+        return {
+            "id": set_id,
+            "name": request.name,
+            "exercise_id": request.exercise_id,
+            "reps": request.reps,
+            "weight": request.weight,
+            "duration_sec": request.duration_sec
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating set: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create set: {str(e)}")
+
+@app.get("/sets/{set_id}", response_model=Dict[str, Any])
+async def get_set(set_id: str):
+    """
+    Get set information by set_id.
+    
+    - **set_id**: Unique identifier for the set
+    
+    Returns the set data including name, exercise_id, reps, weight, and duration_sec.
+    """
+    logger.info(f"GET /sets/{set_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get set")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for sets
+        sets_collection = db["sets"]
+        
+        # Find set by set_id
+        set_doc = sets_collection.find_one({'_id': set_id})
+        
+        if not set_doc:
+            logger.warning(f"Set with set_id '{set_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Set with set_id '{set_id}' not found"
+            )
+        
+        # Format response (exclude MongoDB _id, use id instead)
+        # Handle both excersise_id (typo) and exercise_id (correct)
+        exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
+        
+        set_data = {
+            "id": set_doc.get('_id', set_id),
+            "name": set_doc.get('name'),
+            "exercise_id": exercise_id,
+            "reps": set_doc.get('reps'),
+            "weight": set_doc.get('weight'),
+            "duration_sec": set_doc.get('duration_sec')
+        }
+        
+        logger.info(f"Successfully retrieved set with set_id: {set_id}")
+        return set_data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving set with set_id '{set_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get set: {str(e)}")
+
+@app.post("/workouts/", response_model=Dict[str, Any])
+async def create_workout(request: CreateWorkoutRequest):
+    """
+    Create a new workout consisting of sets.
+    
+    - **workout_plan**: Array of day plans, each containing:
+      - **day**: Day of the week (e.g., "Monday", "Tuesday")
+      - **exercises_ids**: Array of set IDs for that day
+    
+    Returns the created workout with a generated ID.
+    """
+    logger.info(f"POST /workouts/ endpoint called with {len(request.workout_plan)} day plan(s)")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot create workout")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for workouts
+        workouts_collection = db["workouts"]
+        
+        # Validate that all referenced set IDs exist
+        sets_collection = db["sets"]
+        all_set_ids = set()
+        for day_plan in request.workout_plan:
+            all_set_ids.update(day_plan.exercises_ids)
+        
+        # Check if all set IDs exist
+        for set_id in all_set_ids:
+            set_doc = sets_collection.find_one({'_id': set_id})
+            if not set_doc:
+                logger.warning(f"Set with ID '{set_id}' not found")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Set with ID '{set_id}' not found. Cannot create workout with non-existent sets."
+                )
+        
+        # Generate a new ID for the workout (using ObjectId converted to string)
+        workout_id = str(ObjectId())
+        
+        # Prepare workout document
+        workout_doc = {
+            '_id': workout_id,
+            'workout_plan': [day_plan.model_dump() for day_plan in request.workout_plan]
+        }
+        
+        # Insert workout into database
+        result = workouts_collection.insert_one(workout_doc)
+        
+        if result.inserted_id:
+            logger.info(f"Successfully created workout with ID: {result.inserted_id}")
+        else:
+            logger.error("Failed to insert workout document")
+            raise HTTPException(status_code=500, detail="Failed to create workout")
+        
+        # Return the created workout data
+        return {
+            "workout_id": workout_id,
+            "workout_plan": [day_plan.model_dump() for day_plan in request.workout_plan],
+            "message": f"Successfully created workout with {len(request.workout_plan)} day plan(s)"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating workout: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create workout: {str(e)}")
+
+@app.get("/workouts/{workout_id}", response_model=Dict[str, Any])
+async def get_workout(workout_id: str):
+    """
+    Get workout information by workout_id.
+    
+    - **workout_id**: Unique identifier for the workout
+    
+    Returns the workout data including workout_id and workout_plan.
+    """
+    logger.info(f"GET /workouts/{workout_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get workout")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for workouts
+        workouts_collection = db["workouts"]
+        
+        # Find workout by workout_id
+        workout_doc = workouts_collection.find_one({'_id': workout_id})
+        
+        if not workout_doc:
+            logger.warning(f"Workout with workout_id '{workout_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout with workout_id '{workout_id}' not found"
+            )
+        
+        # Format response (exclude MongoDB _id, use workout_id instead)
+        workout_data = {
+            "workout_id": workout_doc.get('_id', workout_id),
+            "workout_plan": workout_doc.get('workout_plan', [])
+        }
+        
+        logger.info(f"Successfully retrieved workout with workout_id: {workout_id}")
+        return workout_data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving workout with workout_id '{workout_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get workout: {str(e)}")
+
+@app.post("/users/{user_id}/workouts/{workout_id}", response_model=Dict[str, Any])
+async def add_workout_to_user(user_id: str, workout_id: str):
+    """
+    Add a workout ID to the user's associated_workout_ids list.
+    
+    - **user_id**: ID of the user
+    - **workout_id**: ID of the workout to associate with the user
+    
+    Returns the updated user data.
+    """
+    logger.info(f"POST /users/{user_id}/workouts/{workout_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot add workout to user")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use collections
+        users_collection = db["users"]
+        workouts_collection = db["workouts"]
+        
+        # Check if user exists
+        user_doc = users_collection.find_one({'_id': user_id})
+        if not user_doc:
+            logger.warning(f"User with user_id '{user_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"User with user_id '{user_id}' not found"
+            )
+        
+        # Check if workout exists
+        workout_doc = workouts_collection.find_one({'_id': workout_id})
+        if not workout_doc:
+            logger.warning(f"Workout with workout_id '{workout_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout with workout_id '{workout_id}' not found"
+            )
+        
+        # Get current associated_workout_ids (handle None or empty list)
+        current_workout_ids = user_doc.get('associated_workout_ids', [])
+        if current_workout_ids is None:
+            current_workout_ids = []
+        
+        # Check if workout_id is already in the list
+        if workout_id in current_workout_ids:
+            logger.warning(f"Workout '{workout_id}' is already associated with user '{user_id}'")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Workout with workout_id '{workout_id}' is already associated with user '{user_id}'"
+            )
+        
+        # Add workout_id to the list
+        updated_workout_ids = current_workout_ids + [workout_id]
+        
+        # Update user document
+        result = users_collection.update_one(
+            {'_id': user_id},
+            {'$set': {'associated_workout_ids': updated_workout_ids}}
+        )
+        
+        if result.modified_count == 1:
+            logger.info(f"Successfully added workout '{workout_id}' to user '{user_id}'")
+        elif result.matched_count == 0:
+            logger.error(f"User '{user_id}' not found for update")
+            raise HTTPException(status_code=404, detail=f"User with user_id '{user_id}' not found")
+        else:
+            logger.warning(f"Update operation didn't modify user document")
+        
+        # Return updated user data
+        return {
+            "user_id": user_id,
+            "associated_workout_ids": updated_workout_ids,
+            "message": f"Successfully added workout '{workout_id}' to user '{user_id}'"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding workout to user: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to add workout to user: {str(e)}")
 
 @app.post("/workouts/generate", response_model=Dict[str, Any])
 async def generate_workout(request: GenerateWorkoutRequest):
