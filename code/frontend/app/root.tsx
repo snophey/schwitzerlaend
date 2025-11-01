@@ -5,6 +5,7 @@ import {
   Links,
   Meta,
   Outlet,
+  useLoaderData,
   Scripts,
   ScrollRestoration,
 } from "react-router";
@@ -15,8 +16,12 @@ import {
   mantineHtmlProps,
 } from "@mantine/core";
 import { theme } from "./theme";
+import { sessionLoader } from "./sessionLoader";
+import { SessionContext } from "./sessionProvider";
 import type { Route } from "./+types/root";
 import "./app.css";
+
+export const loader = sessionLoader;
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -51,7 +56,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const sessionData = useLoaderData<{ userId: string }>();
+
+  return (
+    <SessionContext.Provider value={sessionData}>
+      <Outlet />;
+    </SessionContext.Provider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

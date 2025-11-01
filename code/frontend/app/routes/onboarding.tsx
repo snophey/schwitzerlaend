@@ -3,6 +3,7 @@ import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import StartButton from "~/components/StartButton";
 import NextButton from "~/components/NextButton";
+import { useSession } from "~/sessionProvider";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -13,9 +14,14 @@ export function meta({}: Route.MetaArgs) {
 
 // TODO: REPLACE LINK WITH ROUTE TO NEXT SCREEN
 export default function Onboarding() {
+  const session = useSession();
+
   return (
     <PageWrapper>
       <Stack align="center" gap="md">
+        {/* Logo */}
+        <p className="text-red-500">Hallo User {session.userId}</p>
+
         {/* Logo */}
         <div>
           <Image
