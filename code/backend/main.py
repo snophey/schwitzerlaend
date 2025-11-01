@@ -138,7 +138,8 @@ async def root():
             "GET /workouts/{workout_name}/exercises/count - Get the number of exercises for a workout",
             "GET /workouts/{workout_name}/exercises - Get all exercises for a workout",
             "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)",
-            "GET /workouts/dummy - Get a dummy weekly workout plan (7 days)"
+            "GET /workouts/dummy - Get a dummy weekly workout plan (7 days)",
+            "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user"
         ]
     }
 
@@ -759,6 +760,165 @@ async def get_workout_exercise_by_index(workout_name: str, exercise_index: int):
     except Exception as e:
         logger.error(f"Error getting exercise at index {exercise_index} for workout '{workout_name}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get exercise: {str(e)}")
+
+@app.get("/users/{user_id}/weekly-overview", response_model=Dict[str, Any])
+async def get_weekly_overview(user_id: str):
+    """
+    Get weekly workout overview for a specific user.
+    
+    - **user_id**: ID of the user
+    
+    Returns a weekly overview showing all 7 days (Monday-Sunday) with:
+    - Sets scheduled for each day (with reps, weight, duration details)
+    - Full exercise information from the exercises collection (if available)
+    - Rest days marked when no training is scheduled
+    - Summary statistics (training days, rest days, total sets)
+    """
+    logger.info(f"GET /users/{user_id}/weekly-overview endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get weekly overview")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Get workout plan from workouts collection
+        workouts_collection = db["workouts"]
+        workout_doc = workouts_collection.find_one({'_id': user_id})
+        
+        if not workout_doc:
+            logger.warning(f"No workout plan found for user_id: {user_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No workout plan found for user_id: {user_id}"
+            )
+        
+        workout_plan = workout_doc.get('workout_plan', [])
+        
+        if not workout_plan:
+            logger.warning(f"Workout plan is empty for user_id: {user_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout plan is empty for user_id: {user_id}"
+            )
+        
+        # Get all sets from sets collection
+        sets_collection = db["sets"]
+        all_sets = {}
+        
+        # Collect all unique set IDs and exercise IDs from the workout plan
+        set_ids = set()
+        exercise_ids = set()
+        
+        for day_plan in workout_plan:
+            exercises_ids = day_plan.get('exercises_ids', [])
+            # Ensure IDs are strings
+            exercises_ids = [str(eid) if not isinstance(eid, str) else eid for eid in exercises_ids]
+            set_ids.update(exercises_ids)
+        
+        # Fetch all sets
+        for set_id in set_ids:
+            set_doc = sets_collection.find_one({'_id': set_id})
+            if set_doc:
+                # Convert ObjectId to string if present, and format the document
+                formatted_set = {}
+                for key, value in set_doc.items():
+                    if key != '_id':  # Exclude MongoDB _id from response
+                        formatted_set[key] = value
+                
+                # Collect exercise_id from the set (note: there's a typo "excersise_id" in the data)
+                exercise_id = formatted_set.get('excersise_id') or formatted_set.get('exercise_id')
+                if exercise_id:
+                    exercise_ids.add(exercise_id)
+                
+                all_sets[set_id] = formatted_set
+        
+        # Get all exercises from exercises collection
+        exercises_collection = db["exercises"]
+        all_exercises = {}
+        
+        # Fetch all exercises
+        for exercise_id in exercise_ids:
+            exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+            if exercise_doc:
+                # Format exercise document (exclude MongoDB _id from response, but include it as 'id')
+                formatted_exercise = {}
+                for key, value in exercise_doc.items():
+                    if key == '_id':
+                        formatted_exercise['id'] = value
+                    else:
+                        formatted_exercise[key] = value
+                all_exercises[exercise_id] = formatted_exercise
+        
+        # Define week days in order
+        week_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        # Create weekly plan structure with all 7 days
+        weekly_plan = []
+        day_sets_map = {}
+        
+        # Map existing days
+        for day_plan in workout_plan:
+            day = day_plan.get('day', '')
+            exercises_ids = day_plan.get('exercises_ids', [])
+            # Ensure IDs are strings
+            exercises_ids = [str(eid) if not isinstance(eid, str) else eid for eid in exercises_ids]
+            day_sets_map[day] = [all_sets.get(str(eid)) for eid in exercises_ids if str(eid) in all_sets]
+        
+        # Build response with all 7 days
+        for day in week_days:
+            sets_for_day = day_sets_map.get(day, [])
+            
+            # Format sets for this day
+            formatted_sets = []
+            for set_data in sets_for_day:
+                if set_data:
+                    # Get exercise_id from set (handle typo "excersise_id")
+                    exercise_id = set_data.get('excersise_id') or set_data.get('exercise_id')
+                    
+                    # Get exercise information if it exists
+                    exercise_info = None
+                    if exercise_id and exercise_id in all_exercises:
+                        exercise_info = all_exercises[exercise_id]
+                    
+                    formatted_set = {
+                        "name": set_data.get('name', 'Unknown Exercise'),
+                        "reps": set_data.get('reps'),
+                        "weight": set_data.get('weight'),
+                        "duration_sec": set_data.get('duration_sec'),
+                        "exercise_id": exercise_id or 'N/A',
+                        "exercise": exercise_info  # Include full exercise details if available
+                    }
+                    formatted_sets.append(formatted_set)
+            
+            weekly_plan.append({
+                "day": day,
+                "day_number": week_days.index(day) + 1,
+                "sets": formatted_sets,
+                "is_rest_day": len(formatted_sets) == 0
+            })
+        
+        # Calculate summary
+        total_sets = sum(len(day_entry['sets']) for day_entry in weekly_plan)
+        training_days = sum(1 for day_entry in weekly_plan if not day_entry['is_rest_day'])
+        rest_days = 7 - training_days
+        
+        logger.info(f"Retrieved weekly overview for user_id: {user_id} - {training_days} training days, {total_sets} total sets")
+        
+        return {
+            "user_id": user_id,
+            "weekly_plan": weekly_plan,
+            "summary": {
+                "training_days": training_days,
+                "rest_days": rest_days,
+                "total_sets": total_sets
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving weekly overview for user_id '{user_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get weekly overview: {str(e)}")
 
 @app.get("/workouts/dummy", response_model=List[Dict[str, Any]])
 async def get_dummy_workout_plan():
