@@ -14,17 +14,14 @@ const BackButton: React.FC<ButtonText> = ({ text, onClick}) => {
             component="a"
             href="#"
             variant="subtle"
-            color="transpart"
+            color="gray"
             radius="xs"
             size="md"
+            leftSection={<FaArrowLeft />}
             mt="md" style={{
-                width: 60,
-                height: 60,
-                padding: 0,
+                height: 70,
             }}
         >
-
-            <FaArrowLeft />
             {text}
         </Button>
     );
