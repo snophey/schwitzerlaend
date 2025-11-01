@@ -148,6 +148,35 @@ class CreateSetRequest(BaseModel):
             }
         }
 
+class CreateExerciseRequest(BaseModel):
+    """Request model for creating an exercise."""
+    exercise_id: str = Field(..., description="Unique identifier for the exercise", example="3_4_Sit-Up")
+    name: str = Field(..., description="Name of the exercise", example="3/4 Sit-Up")
+    force: Optional[str] = Field(None, description="Force type: 'pull' or 'push'", example="pull")
+    level: Optional[str] = Field(None, description="Difficulty level: 'beginner', 'intermediate', or 'expert'", example="beginner")
+    mechanic: Optional[str] = Field(None, description="Mechanic type: 'compound' or 'isolation'", example="compound")
+    equipment: Optional[str] = Field(None, description="Equipment required", example="body only")
+    primaryMuscles: Optional[List[str]] = Field(None, description="Primary muscles targeted", example=["abdominals"])
+    secondaryMuscles: Optional[List[str]] = Field(None, description="Secondary muscles targeted", example=[])
+    instructions: Optional[List[str]] = Field(None, description="Step-by-step instructions", example=["Lie down on the floor..."])
+    category: Optional[str] = Field(None, description="Exercise category", example="strength")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "exercise_id": "3_4_Sit-Up",
+                "name": "3/4 Sit-Up",
+                "force": "pull",
+                "level": "beginner",
+                "mechanic": "compound",
+                "equipment": "body only",
+                "primaryMuscles": ["abdominals"],
+                "secondaryMuscles": [],
+                "instructions": ["Lie down on the floor and secure your feet."],
+                "category": "strength"
+            }
+        }
+
 class DayPlan(BaseModel):
     """Day plan model for workout schedules."""
     day: str = Field(..., description="Day of the week", example="Monday")
@@ -237,7 +266,6 @@ async def root():
     return {
         "message": "Welcome to the Workouts API",
         "endpoints": [
-            "POST /workouts/generate - Generate a workout using AI from a prompt",
             "POST /users/{user_id} - Create a new user",
             "GET /users/{user_id} - Get user information by user_id",
             "GET /users/{user_id}/weekly-overview - Get weekly workout overview for a user",
@@ -247,6 +275,10 @@ async def root():
             "POST /sets/ - Create a new set consisting of exercises",
             "GET /sets/{set_id} - Get set information by set_id",
             "DELETE /sets/{set_id} - Delete a set by set_id",
+            "POST /exercises/ - Create a new exercise",
+            "GET /exercises/ - Get all exercises",
+            "GET /exercises/{exercise_id} - Get exercise information by exercise_id",
+            "DELETE /exercises/{exercise_id} - Delete an exercise by exercise_id",
             "DELETE /users/{user_id} - Delete a user by user_id",
             "POST /users/{user_id}/workouts/{workout_id} - Add a workout id to the workouts list",
             "DELETE /users/{user_id}/workouts/{workout_id} - Remove a workout id from the workouts list",
@@ -580,6 +612,253 @@ async def delete_set(set_id: str):
         logger.error(f"Error deleting set with set_id '{set_id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete set: {str(e)}")
 
+@app.post("/exercises/", response_model=Dict[str, Any], tags=["Exercises"])
+async def create_exercise(request: CreateExerciseRequest):
+    """
+    Create a new exercise.
+    
+    - **exercise_id**: Unique identifier for the exercise
+    - **name**: Name of the exercise
+    - **force**: Force type (optional)
+    - **level**: Difficulty level (optional)
+    - **mechanic**: Mechanic type (optional)
+    - **equipment**: Equipment required (optional)
+    - **primaryMuscles**: Primary muscles targeted (optional)
+    - **secondaryMuscles**: Secondary muscles targeted (optional)
+    - **instructions**: Step-by-step instructions (optional)
+    - **category**: Exercise category (optional)
+    
+    Returns the created exercise with its ID.
+    """
+    logger.info(f"POST /exercises/ endpoint called with exercise_id: '{request.exercise_id}'")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot create exercise")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for exercises
+        exercises_collection = db["exercises"]
+        
+        # Check if exercise already exists
+        existing_exercise = exercises_collection.find_one({'_id': request.exercise_id})
+        if existing_exercise:
+            logger.warning(f"Exercise with exercise_id '{request.exercise_id}' already exists")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Exercise with exercise_id '{request.exercise_id}' already exists. Cannot create duplicate exercise."
+            )
+        
+        # Create exercise document
+        exercise_doc = {
+            '_id': request.exercise_id,
+            'name': request.name
+        }
+        
+        # Add optional fields if provided
+        if request.force is not None:
+            exercise_doc['force'] = request.force
+        if request.level is not None:
+            exercise_doc['level'] = request.level
+        if request.mechanic is not None:
+            exercise_doc['mechanic'] = request.mechanic
+        if request.equipment is not None:
+            exercise_doc['equipment'] = request.equipment
+        if request.primaryMuscles is not None:
+            exercise_doc['primaryMuscles'] = request.primaryMuscles
+        if request.secondaryMuscles is not None:
+            exercise_doc['secondaryMuscles'] = request.secondaryMuscles
+        if request.instructions is not None:
+            exercise_doc['instructions'] = request.instructions
+        if request.category is not None:
+            exercise_doc['category'] = request.category
+        
+        # Insert exercise into database
+        result = exercises_collection.insert_one(exercise_doc)
+        
+        if result.inserted_id:
+            logger.info(f"Successfully created exercise with ID: {result.inserted_id}")
+        else:
+            logger.error("Failed to insert exercise document")
+            raise HTTPException(status_code=500, detail="Failed to create exercise")
+        
+        # Return the created exercise data
+        return {
+            "id": request.exercise_id,
+            "name": request.name,
+            "force": request.force,
+            "level": request.level,
+            "mechanic": request.mechanic,
+            "equipment": request.equipment,
+            "primaryMuscles": request.primaryMuscles,
+            "secondaryMuscles": request.secondaryMuscles,
+            "instructions": request.instructions,
+            "category": request.category
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating exercise: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create exercise: {str(e)}")
+
+@app.get("/exercises/", response_model=List[Dict[str, Any]], tags=["Exercises"])
+async def get_all_exercises(skip: int = 0, limit: int = 100):
+    """
+    Get all exercises with pagination support.
+    
+    - **skip**: Number of exercises to skip (for pagination, default: 0)
+    - **limit**: Maximum number of exercises to return (default: 100, max: 1000)
+    
+    Returns a list of exercises.
+    """
+    logger.info(f"GET /exercises/ endpoint called (skip={skip}, limit={limit})")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get exercises")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    # Limit the maximum results to prevent performance issues
+    limit = min(limit, 1000)
+    
+    try:
+        # Use a collection for exercises
+        exercises_collection = db["exercises"]
+        
+        # Get total count
+        total_count = exercises_collection.count_documents({})
+        
+        # Fetch exercises with pagination
+        exercises = list(exercises_collection.find().skip(skip).limit(limit))
+        
+        # Format response
+        exercises_list = []
+        for exercise_doc in exercises:
+            exercise_data = {}
+            for key, value in exercise_doc.items():
+                if key == '_id':
+                    exercise_data['id'] = value
+                else:
+                    exercise_data[key] = value
+            exercises_list.append(exercise_data)
+        
+        logger.info(f"Successfully retrieved {len(exercises_list)} exercise(s) (total: {total_count})")
+        
+        return exercises_list
+    
+    except Exception as e:
+        logger.error(f"Error retrieving exercises: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get exercises: {str(e)}")
+
+@app.get("/exercises/{exercise_id}", response_model=Dict[str, Any], tags=["Exercises"])
+async def get_exercise(exercise_id: str):
+    """
+    Get exercise information by exercise_id.
+    
+    - **exercise_id**: Unique identifier for the exercise
+    
+    Returns the exercise data including all fields.
+    """
+    logger.info(f"GET /exercises/{exercise_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get exercise")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for exercises
+        exercises_collection = db["exercises"]
+        
+        # Find exercise by exercise_id
+        exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+        
+        if not exercise_doc:
+            logger.warning(f"Exercise with exercise_id '{exercise_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Exercise with exercise_id '{exercise_id}' not found"
+            )
+        
+        # Format response (exclude MongoDB _id, use id instead)
+        exercise_data = {}
+        for key, value in exercise_doc.items():
+            if key == '_id':
+                exercise_data['id'] = value
+            else:
+                exercise_data[key] = value
+        
+        logger.info(f"Successfully retrieved exercise with exercise_id: {exercise_id}")
+        return exercise_data
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving exercise with exercise_id '{exercise_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get exercise: {str(e)}")
+
+@app.delete("/exercises/{exercise_id}", response_model=Dict[str, Any], tags=["Exercises"])
+async def delete_exercise(exercise_id: str):
+    """
+    Delete an exercise by exercise_id.
+    
+    - **exercise_id**: Unique identifier for the exercise
+    
+    Returns a confirmation message upon successful deletion.
+    """
+    logger.info(f"DELETE /exercises/{exercise_id} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot delete exercise")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Use a collection for exercises
+        exercises_collection = db["exercises"]
+        
+        # Check if exercise exists
+        exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+        if not exercise_doc:
+            logger.warning(f"Exercise with exercise_id '{exercise_id}' not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Exercise with exercise_id '{exercise_id}' not found"
+            )
+        
+        # Check if exercise is referenced by any sets
+        sets_collection = db["sets"]
+        sets_using_exercise = sets_collection.count_documents({
+            '$or': [
+                {'exercise_id': exercise_id},
+                {'excersise_id': exercise_id}  # Also check typo version
+            ]
+        })
+        
+        if sets_using_exercise > 0:
+            logger.warning(f"Cannot delete exercise '{exercise_id}': it is referenced by {sets_using_exercise} set(s)")
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot delete exercise with exercise_id '{exercise_id}': it is referenced by {sets_using_exercise} set(s). Please delete or update the sets first."
+            )
+        
+        # Delete exercise
+        result = exercises_collection.delete_one({'_id': exercise_id})
+        
+        if result.deleted_count == 1:
+            logger.info(f"Successfully deleted exercise with exercise_id: {exercise_id}")
+            return {
+                "message": f"Exercise with exercise_id '{exercise_id}' has been successfully deleted",
+                "exercise_id": exercise_id
+            }
+        else:
+            logger.error(f"Failed to delete exercise '{exercise_id}'")
+            raise HTTPException(status_code=500, detail=f"Failed to delete exercise with exercise_id '{exercise_id}'")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting exercise with exercise_id '{exercise_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete exercise: {str(e)}")
+
 @app.post("/workouts/", response_model=Dict[str, Any], tags=["Workouts"])
 async def create_workout(request: CreateWorkoutRequest):
     """
@@ -893,223 +1172,6 @@ async def remove_workout_from_user(user_id: str, workout_id: str):
         logger.error(f"Error removing workout from user: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to remove workout from user: {str(e)}")
 
-@app.post("/workouts/generate", response_model=Dict[str, Any], tags=["AI Workouts"])
-async def generate_workout(request: GenerateWorkoutRequest):
-    """
-    Generate a workout using OpenAI based on a natural language prompt.
-    
-    - **prompt**: A natural language description of the workout you want (e.g., "I want soft yoga mainly stretching mid efforts")
-    
-    The AI will generate a workout with exercises in JSON format and add it to the database.
-    """
-    logger.info(f"POST /workouts/generate endpoint called with prompt: '{request.prompt}'")
-    
-    # Get OpenAI API key from environment
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        logger.error("OPENAI_API_KEY environment variable not set")
-        raise HTTPException(
-            status_code=500,
-            detail="OpenAI API key not configured. Please set OPENAI_API_KEY environment variable."
-        )
-    
-    try:
-        # Initialize OpenAI client
-        openai_client = OpenAI(api_key=openai_api_key)
-        logger.info("OpenAI client initialized")
-        
-        # Create system prompt that specifies the JSON format
-        system_prompt = """You are a fitness expert. Generate a workout plan in JSON format ONLY.
-
-The response must be valid JSON with this EXACT structure where the workout name is the top-level key:
-{
-  "Workout Name": {
-    "Exercise Name 1": {
-      "type": "repetition" | "weighted repetition" | "time" | "distance" | "skill",
-      "description": "Detailed description of how to perform the exercise",
-      "reps": <number> (only if type is "repetition", "weighted repetition", or "skill"),
-      "weight": <number> (only if type is "weighted repetition"),
-      "duration_sec": <number> (only if type is "time"),
-      "distance_m": <number> (only if type is "distance"),
-      "skill": <string> (only if type is "skill")
-    },
-    "Exercise Name 2": {
-      "type": "time",
-      "duration_sec": 60,
-      "description": "Hold the pose for 60 seconds"
-    }
-  }
-}
-
-IMPORTANT:
-- The workout name MUST be the top-level key (not inside a "workout_name" field)
-- Each exercise name is a key under the workout
-- Return ONLY the JSON object, no other text before or after
-- Include 3-6 exercises per workout
-- Make exercise descriptions detailed and helpful
-- Choose appropriate exercise types based on the workout description
-- Ensure all required fields match the exercise type
-- Use proper JSON formatting
-
-Example:
-{
-  "Gentle Yoga": {
-    "Downward Dog": {
-      "type": "time",
-      "duration_sec": 60,
-      "description": "Hold downward dog pose for 60 seconds, focusing on stretching the hamstrings and shoulders."
-    },
-    "Child's Pose": {
-      "type": "time",
-      "duration_sec": 90,
-      "description": "Rest in child's pose for 90 seconds, breathing deeply and relaxing."
-    }
-  }
-}"""
-
-        logger.info("Calling OpenAI API to generate workout...")
-        
-        # Call OpenAI API
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",  # Using gpt-4o-mini for cost efficiency, can change to "gpt-4" for better results
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Create a workout based on this request: {request.prompt}"}
-            ],
-            temperature=0.7,
-            response_format={"type": "json_object"}  # Force JSON response
-        )
-        
-        # Extract JSON from response
-        generated_text = response.choices[0].message.content
-        logger.info(f"OpenAI generated response: {generated_text[:200]}...")  # Log first 200 chars
-        
-        # Parse JSON
-        try:
-            workout_json = json.loads(generated_text)
-            logger.info("Successfully parsed JSON from OpenAI response")
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from OpenAI response: {e}")
-            logger.error(f"Response text: {generated_text}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to parse JSON from OpenAI response: {str(e)}"
-            )
-        
-        # Extract workout name and exercises from the format: {"Workout Name": {"Exercise": {...}}}
-        # The workout name is the top-level key
-        if len(workout_json) == 0:
-            logger.error("Generated JSON is empty")
-            raise HTTPException(status_code=500, detail="Generated JSON is empty")
-        
-        if len(workout_json) > 1:
-            logger.warning(f"Generated JSON has multiple top-level keys: {list(workout_json.keys())}. Using the first one.")
-        
-        # Get the first (and should be only) top-level key as workout name
-        workout_name = list(workout_json.keys())[0]
-        exercises_dict = workout_json[workout_name]
-        
-        if not isinstance(exercises_dict, dict):
-            logger.error(f"Workout '{workout_name}' value is not a dictionary of exercises")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Invalid structure: workout '{workout_name}' should contain a dictionary of exercises"
-            )
-        
-        logger.info(f"Generated workout '{workout_name}' with {len(exercises_dict)} exercise(s)")
-        
-        # Convert to AddWorkoutRequest format
-        exercises = {}
-        for exercise_name, exercise_data in exercises_dict.items():
-            try:
-                # Validate exercise structure
-                exercise = Exercise(**exercise_data)
-                exercises[exercise_name] = exercise
-            except Exception as e:
-                logger.warning(f"Failed to validate exercise '{exercise_name}': {e}")
-                # Try to create a minimal valid exercise
-                exercises[exercise_name] = Exercise(
-                    type=exercise_data.get("type", "repetition"),
-                    description=exercise_data.get("description", "Exercise description"),
-                    reps=exercise_data.get("reps"),
-                    weight=exercise_data.get("weight"),
-                    duration_sec=exercise_data.get("duration_sec"),
-                    distance_m=exercise_data.get("distance_m"),
-                    skill=exercise_data.get("skill")
-                )
-        
-        # Create AddWorkoutRequest
-        add_request = AddWorkoutRequest(
-            workout_name=workout_name,
-            exercises=exercises if exercises else None
-        )
-        
-        # Add to database using existing logic
-        logger.info(f"Adding generated workout '{workout_name}' to database...")
-        
-        if db is None:
-            logger.error("Database connection is None - cannot add workout")
-            raise HTTPException(status_code=500, detail="Database connection not available")
-        
-        collection_name = get_collection_name()
-        if collection_name is None:
-            logger.error("No collections found in database")
-            raise HTTPException(status_code=500, detail="No collections found in database")
-        
-        logger.info(f"Using collection: {collection_name}")
-        collection = db[collection_name]
-        
-        # Check if workout already exists
-        existing_doc_with_workout = collection.find_one({workout_name: {"$exists": True}})
-        if existing_doc_with_workout:
-            logger.warning(f"Workout '{workout_name}' already exists in database")
-            raise HTTPException(
-                status_code=400,
-                detail=f"Workout '{workout_name}' already exists"
-            )
-        
-        # Prepare workout data
-        workout_data = {}
-        if add_request.exercises:
-            for exercise_name, exercise in add_request.exercises.items():
-                exercise_dict = exercise.model_dump(exclude_none=True)
-                workout_data[exercise_name] = exercise_dict
-        
-        # Get or create document
-        existing_doc = collection.find_one({})
-        
-        if existing_doc:
-            logger.info(f"Updating existing document with new workout '{workout_name}'")
-            result = collection.update_one(
-                {"_id": existing_doc["_id"]},
-                {"$set": {workout_name: workout_data}}
-            )
-            if result.modified_count == 1:
-                logger.info(f"Successfully added workout '{workout_name}' to existing document")
-            else:
-                logger.warning(f"Update operation didn't modify document. Modified count: {result.modified_count}")
-        else:
-            logger.info(f"Creating new document with workout '{workout_name}'")
-            new_doc = {workout_name: workout_data}
-            result = collection.insert_one(new_doc)
-            if result.inserted_id:
-                logger.info(f"Successfully created new document with workout '{workout_name}' (ID: {result.inserted_id})")
-            else:
-                logger.error("Failed to insert new document")
-                raise HTTPException(status_code=500, detail="Failed to create new workout")
-        
-        return {
-            "message": f"Successfully generated and added workout '{workout_name}'",
-            "workout_name": workout_name,
-            "exercises_count": len(workout_data),
-            "generated_exercises": list(workout_data.keys())
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error generating workout: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate workout: {str(e)}")
 
 @app.get("/users/{user_id}/weekly-overview", response_model=Dict[str, Any], tags=["User Workouts"])
 async def get_weekly_overview(user_id: str):
