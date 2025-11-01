@@ -1,9 +1,19 @@
-import { Button, Container, Stack, Text, Title, Image } from "@mantine/core";
+import {
+  Button,
+  Container,
+  Stack,
+  Text,
+  Title,
+  Image,
+  Card,
+} from "@mantine/core";
 import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import StartButton from "~/components/StartButton";
 import NextButton from "~/components/NextButton";
 import { useSession } from "~/sessionProvider";
+import Cards from "~/components/Cards";
+import { Link } from "react-router";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -53,7 +63,8 @@ export default function Onboarding() {
 
         {/* Button */}
         <StartButton text="Let's schwitz" />
-        <NextButton text="Next" />
+        <Link to="/onboarding"></Link>
+        <Cards />
       </Stack>
     </PageWrapper>
   );

@@ -1,15 +1,16 @@
 import { Button, Container, Stack, Text, Title, Image, type ButtonProps } from "@mantine/core";
 import type React from "react";
+import { Link } from "react-router";
 
 interface ButtonText {
-  text: string 
+  text: string,
 }
 
 const StartButton: React.FC<ButtonText> = ({ text }) => {
   return (
     < Button
-      component="a"
-      href="#"
+      component={Link}
+      to="/onboarding"
       color="red"
       radius="xs"
       size="md"
