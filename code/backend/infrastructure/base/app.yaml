@@ -52,7 +52,7 @@ spec:
           image: ${APP_IMAGE}
           envFrom:
             - secretRef:
-              name: api-secrets
+                name: api-secrets
           ports:
             - containerPort: 80
               name: http
