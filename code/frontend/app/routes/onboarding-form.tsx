@@ -9,6 +9,7 @@ import {
 } from "@mantine/core";
 import type { Route } from "./+types/onboarding-form";
 import NextButton from "~/components/NextButton";
+import Backbutton from "~/components/BackButton";
 import { Form } from "react-router";
 import { WeekdaySelector } from "~/components/weekday-select/WeekdaySelect";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
@@ -77,7 +78,7 @@ export default function OnboardingForm() {
             <Text size="sm">What's your main goal?</Text>
           </Stack>
           <Group justify="space-between" mt="auto" mb="md">
-            <NextButton onClick={() => setStep(step - 1)} text="Back" />
+            <Backbutton onClick={() => setStep(step - 1)} text="Back" />
             <NextButton onClick={() => setStep(step + 1)} text="Next" />
           </Group>
         </Stack>
