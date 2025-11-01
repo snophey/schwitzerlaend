@@ -138,3 +138,55 @@ class CreateWorkoutRequest(BaseModel):
                 ]
             }
         }
+
+
+class SetProgress(BaseModel):
+    """Progress tracking for a single set."""
+    set_id: str = Field(..., description="ID of the set", example="set_123")
+    target_reps: Optional[int] = Field(None, description="Target number of reps", example=15)
+    completed_reps: Optional[int] = Field(None, description="Number of reps completed", example=10)
+    target_weight: Optional[float] = Field(None, description="Target weight in kg", example=20.5)
+    target_duration_sec: Optional[int] = Field(None, description="Target duration in seconds", example=60)
+    is_complete: bool = Field(False, description="Whether this set is marked complete", example=False)
+    completed_at: Optional[str] = Field(None, description="ISO timestamp when set was completed", example="2025-01-11T16:30:00Z")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "set_id": "set_123",
+                "target_reps": 15,
+                "completed_reps": 10,
+                "target_weight": None,
+                "target_duration_sec": None,
+                "is_complete": False,
+                "completed_at": None
+            }
+        }
+
+
+class UpdateSetProgressRequest(BaseModel):
+    """Request model for updating progress on sets."""
+    set_id: str = Field(..., description="ID of the set to update", example="set_123")
+    completed_reps: Optional[int] = Field(None, description="Number of reps completed", example=12)
+    completed_duration_sec: Optional[int] = Field(None, description="Duration completed in seconds", example=45)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "set_id": "set_123",
+                "completed_reps": 12,
+                "completed_duration_sec": None
+            }
+        }
+
+
+class CompleteSetRequest(BaseModel):
+    """Request model for marking a set as complete."""
+    set_id: str = Field(..., description="ID of the set to mark complete", example="set_123")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "set_id": "set_123"
+            }
+        }
