@@ -1,23 +1,25 @@
 .pageWrapper {
     display: flex;
     justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+    min-height: 100svh;
     background: white;
 }
 
 .innerWrapper {
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    margin: 3em auto;
     background: white;
-    max-width: 32em;
+    width: 30em;
+    height: auto;
     padding: 3em 2em;
 }
 
 .contentWrapper {
     display: block;
     text-align: center;
+    width: 100%;
 }
 
 @media (min-width: 36em) {
