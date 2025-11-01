@@ -13,7 +13,7 @@ export function meta({ }: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs): Promise<any> {
   const session = await getSession(request.headers.get("Cookie"));
-  const userId = 1;//session.get("userId");
+  const userId = session.get("userId");
   try {
     console.log(`${process.env.BACKEND_URL}/users/${userId}/weekly-overview`)
     const result = await fetch(`${process.env.BACKEND_URL}/users/${userId}/weekly-overview`);
