@@ -1,3 +1,4 @@
 ./code/backend/secrets/
+code/backend/.env
 *.key
 *.pem
