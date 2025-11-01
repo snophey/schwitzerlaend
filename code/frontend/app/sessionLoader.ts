@@ -12,7 +12,7 @@ export async function sessionLoader({ request }: { request: Request }) {
     session.set("userId", newUserId);
     session.set("createdAt", new Date().toISOString());
 
-    return redirect(request.url, {
+    return new Response(null, {
       headers: {
         "Set-Cookie": await commitSession(session),
       },

@@ -20,7 +20,7 @@ const { getSession, commitSession, destroySession } =
       maxAge: 60,
       path: "/",
       sameSite: "lax",
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
       secrets: [process.env.SESSION_SECRET || "1n53cur3!"], // tamper protection
     },
   });
