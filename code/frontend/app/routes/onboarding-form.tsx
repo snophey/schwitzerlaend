@@ -22,7 +22,7 @@ import { getSession } from "~/sessions.server";
 import { TbInfoSquare } from "react-icons/tb";
 import { useActionData } from "react-router";
 import Cards from "~/components/Cards";
-import SkateCards from "~/components/SkateStrengthCards";
+import SkateStrengthCards from "~/components/SkateStrengthCards";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -99,6 +99,8 @@ export async function action({ request }: Route.ActionArgs) {
 export default function OnboardingForm() {
   const data = useActionData<{ error?: string; workout?: any }>();
   let [step, setStep] = useState(0);
+  const [selectedSkateboardLevel, setSelectedSkateboardLevel] = useState<string>("");
+  const [selectedStrengthLevel, setSelectedStrengthLevel] = useState<string>("");
 
   return (
     <PageWrapper>
@@ -181,29 +183,48 @@ export default function OnboardingForm() {
             <Title order={2} mb={"lg"}>
               Your skill level
             </Title>
-            <Text size="sm">
+            <Text size="sm" c="dimmed" ta="center">
               How advanced are you? Briefly describe your current skill level in
               your sport.
             </Text>
-            <Textarea
-              style={{ textAlign: "left" }}
-              mt={"md"}
-              variant="filled"
-              name="experience-skateboard"
-              label="Skateboard"
-              placeholder="For example, how long have you been training? What techniques or skills have you already mastered?"
-            />
-            <SkateCards />
-            <Textarea
-              style={{ textAlign: "left" }}
-              mt={"md"}
-              variant="filled"
-              label="Strength"
-              name="experience-strength"
-              placeholder="For example, how long have you been training? What fitness-related achievement are you most proud of?"
-            />
 
-            <SkateCards />
+            <Stack align="flex-start" gap="sm" w="100%" mt="xl">
+              <Title order={3} size="sm" mb="xs">
+                Skateboard
+              </Title>
+              <SkateStrengthCards
+                selectedLevel={selectedSkateboardLevel}
+                onLevelChange={setSelectedSkateboardLevel}
+                name="experience-skateboard"
+              />
+
+              <Textarea
+                w="100%"
+                variant="filled"
+                name="experience-skateboard-details"
+                placeholder="For example, how long you've been practicing, what techniques or skills you already master, and what skill challenges you"
+                minRows={4}
+              />
+            </Stack>
+
+            <Stack align="flex-start" gap="sm" w="100%" mt="xl">
+              <Title order={3} size="sm" mb="xs">
+                Strength
+              </Title>
+              <SkateStrengthCards
+                selectedLevel={selectedStrengthLevel}
+                onLevelChange={setSelectedStrengthLevel}
+                name="experience-strength"
+              />
+
+              <Textarea
+                w="100%"
+                variant="filled"
+                name="experience-strength-details"
+                placeholder="For example, how long you've been practicing, and what fitness-related achievement are you most proud of"
+                minRows={4}
+              />
+            </Stack>
           </Stack>
 
           {/* --- Goal ---*/}
