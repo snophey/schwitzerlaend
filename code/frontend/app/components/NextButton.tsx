@@ -16,16 +16,14 @@ const NextButton: React.FC<ButtonProps> = ({ text, onClick, type="button", style
             type={type}
             color="red"
             radius="xs"
-            size="md"
+            size="lg"
+            rightSection={<FaArrowRight />}
             mt="md" style={{
-                width: 60,
-                height: 60,
-                padding: 0,
+                height: 70,
                 ...(style || {})
             }}
         >
             {text}
-            <FaArrowRight />
         </Button>
     );
 }

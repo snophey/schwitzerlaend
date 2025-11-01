@@ -139,12 +139,12 @@ export default function OnboardingForm() {
               How many training sessions would you like to have per week?
             </Text>
             <Stack align="flex-start" gap="sm">
-              <Title order={3} size={"sm"} mt={"md"}>
+              <Title order={3} size={"sm"} mt={"lg"}>
                 Skateboard
               </Title>
               <WeekdaySelector prefix="skateboard-" />
             </Stack>
-            <Stack align="flex-start" gap="sm" mt={"md"}>
+            <Stack align="flex-start" gap="sm" mt={"lg"}>
               <Title order={3} size={"sm"}>
                 Strength
               </Title>
@@ -153,10 +153,10 @@ export default function OnboardingForm() {
             <Alert
               variant="light"
               color="red"
-              mt="md"
+              mt="lg"
               style={{ textAlign: "left" }}
+              icon={<TbInfoSquare />}
             >
-              <TbInfoSquare />
               Plan your training days with recovery in mind! If your muscles
               feel tired or sore, give your body time to rest. Recovery is where
               progress happens.
@@ -258,9 +258,6 @@ export default function OnboardingForm() {
             )}
           </Group>
         </Stack>
-        <Button type="submit" fullWidth mt="xl">
-          [DEBUG] Submit
-        </Button>
       </Form>
     </PageWrapper>
   );

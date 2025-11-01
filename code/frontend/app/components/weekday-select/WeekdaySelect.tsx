@@ -4,16 +4,14 @@ import { Checkbox, Group, Text } from '@mantine/core';
 import classes from './WeekdaySelect.module.css';
 
 export function WeekdayCheckbox({ label, name }: { label: string, name?: string }) {
-  const [checked, setChecked] = useState(false);
-
   return (
-    <Checkbox name={name || label} label={label} />
+    <Checkbox color='red' classNames={classes} p={0} size='lg' name={name || label} label={label} />
   );
 }
 
 export function WeekdaySelector({ prefix = "" }: { prefix: string }) {
   return (
-    <Group>
+    <Group style={{ alignSelf: "stretch" }} gap={"xs"} justify="space-between">
       <WeekdayCheckbox label="MON" name={prefix + "mon"} />
       <WeekdayCheckbox label="TUE" name={prefix + "tue"} />
       <WeekdayCheckbox label="WED" name={prefix + "wed"} />
