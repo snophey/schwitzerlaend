@@ -50,6 +50,9 @@ spec:
         - name: app
           # NOTE : you can update to the latest release
           image: ${APP_IMAGE}
+          envFrom:
+            - secretRef:
+              name: api-secrets
           ports:
             - containerPort: 80
               name: http
