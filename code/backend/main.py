@@ -133,7 +133,10 @@ async def root():
             "POST /workouts - Add a new workout manually",
             "POST /workouts/generate - Generate a workout using AI from a prompt",
             "DELETE /workouts/{workout_name} - Delete an entire workout",
-            "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout"
+            "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout",
+            "GET /workouts/{workout_name}/exercises/count - Get the number of exercises for a workout",
+            "GET /workouts/{workout_name}/exercises - Get all exercises for a workout",
+            "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)"
         ]
     }
 
@@ -562,6 +565,196 @@ Example:
     except Exception as e:
         logger.error(f"Error generating workout: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate workout: {str(e)}")
+
+@app.get("/workouts/{workout_name}/exercises/count", response_model=Dict[str, Any])
+async def get_workout_exercise_count(workout_name: str):
+    """
+    Get the number of exercises for a specific workout.
+    
+    - **workout_name**: Name of the workout (e.g., "CrossFit", "Yoga")
+    
+    Returns the count of exercises in the workout.
+    """
+    logger.info(f"GET /workouts/{workout_name}/exercises/count endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get exercise count")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        collection_name = get_collection_name()
+        if collection_name is None:
+            logger.error("No collections found in database")
+            raise HTTPException(status_code=500, detail="No collections found in database")
+        
+        logger.info(f"Using collection: {collection_name}")
+        collection = db[collection_name]
+        
+        # Check if workout exists
+        existing_doc = collection.find_one({workout_name: {"$exists": True}})
+        if not existing_doc:
+            logger.warning(f"Workout '{workout_name}' not found in database")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout '{workout_name}' not found"
+            )
+        
+        # Get workout data
+        workout_data = existing_doc.get(workout_name, {})
+        if not isinstance(workout_data, dict):
+            logger.error(f"Workout '{workout_name}' does not contain exercises dictionary")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Workout '{workout_name}' has invalid structure"
+            )
+        
+        exercise_count = len(workout_data)
+        logger.info(f"Workout '{workout_name}' has {exercise_count} exercise(s)")
+        
+        return {
+            "workout_name": workout_name,
+            "exercise_count": exercise_count
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting exercise count for workout '{workout_name}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get exercise count: {str(e)}")
+
+@app.get("/workouts/{workout_name}/exercises", response_model=Dict[str, Any])
+async def get_workout_exercises(workout_name: str):
+    """
+    Get all exercises for a specific workout.
+    
+    - **workout_name**: Name of the workout (e.g., "CrossFit", "Yoga")
+    
+    Returns all exercises in the workout with their names and details.
+    """
+    logger.info(f"GET /workouts/{workout_name}/exercises endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get exercises")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        collection_name = get_collection_name()
+        if collection_name is None:
+            logger.error("No collections found in database")
+            raise HTTPException(status_code=500, detail="No collections found in database")
+        
+        logger.info(f"Using collection: {collection_name}")
+        collection = db[collection_name]
+        
+        # Check if workout exists
+        existing_doc = collection.find_one({workout_name: {"$exists": True}})
+        if not existing_doc:
+            logger.warning(f"Workout '{workout_name}' not found in database")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout '{workout_name}' not found"
+            )
+        
+        # Get workout data
+        workout_data = existing_doc.get(workout_name, {})
+        if not isinstance(workout_data, dict):
+            logger.error(f"Workout '{workout_name}' does not contain exercises dictionary")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Workout '{workout_name}' has invalid structure"
+            )
+        
+        logger.info(f"Found {len(workout_data)} exercise(s) for workout '{workout_name}'")
+        
+        return {
+            "workout_name": workout_name,
+            "exercise_count": len(workout_data),
+            "exercises": workout_data
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting exercises for workout '{workout_name}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get exercises: {str(e)}")
+
+@app.get("/workouts/{workout_name}/exercises/{exercise_index}", response_model=Dict[str, Any])
+async def get_workout_exercise_by_index(workout_name: str, exercise_index: int):
+    """
+    Get a specific exercise from a workout by its index (1-based).
+    
+    - **workout_name**: Name of the workout (e.g., "CrossFit", "Yoga")
+    - **exercise_index**: Index of the exercise (1-based, so 1 = first exercise, 2 = second exercise, etc.)
+    
+    Returns the exercise at the specified index along with its name.
+    """
+    logger.info(f"GET /workouts/{workout_name}/exercises/{exercise_index} endpoint called")
+    
+    if db is None:
+        logger.error("Database connection is None - cannot get exercise")
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Validate index
+        if exercise_index < 1:
+            logger.warning(f"Invalid exercise index: {exercise_index} (must be >= 1)")
+            raise HTTPException(
+                status_code=400,
+                detail="Exercise index must be >= 1 (1-based indexing)"
+            )
+        
+        collection_name = get_collection_name()
+        if collection_name is None:
+            logger.error("No collections found in database")
+            raise HTTPException(status_code=500, detail="No collections found in database")
+        
+        logger.info(f"Using collection: {collection_name}")
+        collection = db[collection_name]
+        
+        # Check if workout exists
+        existing_doc = collection.find_one({workout_name: {"$exists": True}})
+        if not existing_doc:
+            logger.warning(f"Workout '{workout_name}' not found in database")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Workout '{workout_name}' not found"
+            )
+        
+        # Get workout data
+        workout_data = existing_doc.get(workout_name, {})
+        if not isinstance(workout_data, dict):
+            logger.error(f"Workout '{workout_name}' does not contain exercises dictionary")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Workout '{workout_name}' has invalid structure"
+            )
+        
+        # Convert to list to maintain order (Python 3.7+ preserves insertion order)
+        exercises_list = list(workout_data.items())
+        
+        if exercise_index > len(exercises_list):
+            logger.warning(f"Exercise index {exercise_index} exceeds number of exercises ({len(exercises_list)})")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Exercise index {exercise_index} not found. Workout '{workout_name}' has {len(exercises_list)} exercise(s)"
+            )
+        
+        # Get exercise at index (convert from 1-based to 0-based)
+        exercise_name, exercise_data = exercises_list[exercise_index - 1]
+        logger.info(f"Found exercise at index {exercise_index}: '{exercise_name}'")
+        
+        return {
+            "workout_name": workout_name,
+            "exercise_index": exercise_index,
+            "exercise_name": exercise_name,
+            "exercise": exercise_data
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting exercise at index {exercise_index} for workout '{workout_name}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get exercise: {str(e)}")
 
 @app.delete("/workouts/{workout_name}", response_model=Dict[str, Any])
 async def delete_workout(workout_name: str):

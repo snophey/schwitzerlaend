@@ -208,7 +208,10 @@ Returns API information and available endpoints.
     "POST /workouts - Add a new workout manually",
     "POST /workouts/generate - Generate a workout using AI from a prompt",
     "DELETE /workouts/{workout_name} - Delete an entire workout",
-    "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout"
+    "DELETE /workouts/{workout_name}/exercises/{exercise_name} - Delete an exercise from a workout",
+    "GET /workouts/{workout_name}/exercises/count - Get the number of exercises for a workout",
+    "GET /workouts/{workout_name}/exercises - Get all exercises for a workout",
+    "GET /workouts/{workout_name}/exercises/{exercise_index} - Get a specific exercise by index (1-based)"
   ]
 }
 ```
@@ -218,7 +221,7 @@ Returns API information and available endpoints.
 #### `GET /workouts`
 Retrieves a list of all workout names from the database.
 
-**Response:** `List[str]`
+**Response:** `List[str]`a
 ```json
 ["CrossFit", "WeightLifting", "Running", "Yoga"]
 ```
@@ -303,6 +306,71 @@ Deletes a specific exercise from a workout.
   "exercise_name": "Downward Dog"
 }
 ```
+
+#### `GET /workouts/{workout_name}/exercises/count`
+Gets the number of exercises for a specific workout.
+
+**Parameters:**
+- `workout_name` (path): Name of the workout
+
+**Response:**
+```json
+{
+  "workout_name": "Yoga",
+  "exercise_count": 5
+}
+```
+
+#### `GET /workouts/{workout_name}/exercises`
+Gets all exercises for a specific workout.
+
+**Parameters:**
+- `workout_name` (path): Name of the workout
+
+**Response:**
+```json
+{
+  "workout_name": "Yoga",
+  "exercise_count": 2,
+  "exercises": {
+    "Downward Dog": {
+      "type": "time",
+      "duration_sec": 60,
+      "description": "Hold downward dog pose for 60 seconds"
+    },
+    "Sun Salutation": {
+      "type": "repetition",
+      "reps": 5,
+      "description": "Complete 5 rounds of sun salutation"
+    }
+  }
+}
+```
+
+#### `GET /workouts/{workout_name}/exercises/{exercise_index}`
+Gets a specific exercise from a workout by its index (1-based).
+
+**Parameters:**
+- `workout_name` (path): Name of the workout
+- `exercise_index` (path): Index of the exercise (1 = first exercise, 2 = second exercise, etc.)
+
+**Response:**
+```json
+{
+  "workout_name": "Yoga",
+  "exercise_index": 1,
+  "exercise_name": "Downward Dog",
+  "exercise": {
+    "type": "time",
+    "duration_sec": 60,
+    "description": "Hold downward dog pose for 60 seconds"
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid index (must be >= 1)
+- `404`: Workout not found or index exceeds number of exercises
 
 ## Data Models
 
@@ -418,6 +486,18 @@ curl -X POST http://localhost:8000/workouts \
 curl -X POST http://localhost:8000/workouts/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "A quick 15 minute cardio workout"}'
+
+# Get exercise count for a workout
+curl http://localhost:8000/workouts/Yoga/exercises/count
+
+# Get all exercises for a workout
+curl http://localhost:8000/workouts/Yoga/exercises
+
+# Get a specific exercise by index (1-based, so 1 = first exercise)
+curl http://localhost:8000/workouts/Yoga/exercises/1
+
+# Get the second exercise
+curl http://localhost:8000/workouts/Yoga/exercises/2
 ```
 
 ### Code Structure
