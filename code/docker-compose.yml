@@ -13,4 +13,17 @@ services:
       dockerfile: Dockerfile
     ports:
       - 3333:3000
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend-api
+    ports:
+      - 8000:8000
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
+    volumes:
+      - ./secrets:/app/secrets
+
   
