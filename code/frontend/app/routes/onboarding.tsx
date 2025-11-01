@@ -11,8 +11,8 @@ import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import StartButton from "~/components/StartButton";
 import NextButton from "~/components/NextButton";
-import { useSession } from "~/sessionProvider";
 import Cards from "~/components/Cards";
+import { useSession } from "~/sessionProvider";
 import { Link } from "react-router";
 
 export function meta({}: Route.MetaArgs) {
