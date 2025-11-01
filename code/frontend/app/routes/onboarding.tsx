@@ -1,9 +1,18 @@
-import { Button, Container, Stack, Text, Title, Image, Card } from "@mantine/core";
+import {
+  Button,
+  Container,
+  Stack,
+  Text,
+  Title,
+  Image,
+  Card,
+} from "@mantine/core";
 import type { Route } from "./+types/home";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
 import StartButton from "~/components/StartButton";
 import NextButton from "~/components/NextButton";
-import Cards from "~/components/Cards"
+import Cards from "~/components/Cards";
+import { useSession } from "~/sessionProvider";
 import { Link } from "react-router";
 import BackButton from "~/components/BackButton";
 
@@ -16,9 +25,14 @@ export function meta({}: Route.MetaArgs) {
 
 // TODO: REPLACE LINK WITH ROUTE TO NEXT SCREEN
 export default function Onboarding() {
+  const session = useSession();
+
   return (
     <PageWrapper>
       <Stack align="center" gap="md">
+        {/* Logo */}
+        <p className="text-red-500">Hallo User {session.userId}</p>
+
         {/* Logo */}
         <div>
           <Image
