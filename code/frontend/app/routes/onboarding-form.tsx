@@ -9,6 +9,7 @@ import {
   Alert,
   rem,
   Flex,
+  Progress,
 } from "@mantine/core";
 import type { Route } from "./+types/onboarding-form";
 import NextButton from "~/components/NextButton";
@@ -112,6 +113,7 @@ export default function OnboardingForm() {
           setStep(5); // show loading screen
         }}
       >
+        <Progress value={((step+1) / 5) * 100} size="sm" transitionDuration={200} mb={"xl"} />
         <Stack align="stretch">
           {/* --- Sport selection ---*/}
           <Stack

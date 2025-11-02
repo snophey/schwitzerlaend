@@ -60,7 +60,7 @@ export default function App() {
 
   return (
     <SessionContext.Provider value={sessionData}>
-      <Outlet />;
+      <Outlet />
     </SessionContext.Provider>
   );
 }
