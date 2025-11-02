@@ -133,11 +133,11 @@ async def get_latest_history(user_id: str):
     try:
         history_collection = db["history"]
         
-        # Find the most recent history entry for this user
+        # Find the most recent history entry for this user (sort by created_at to get the latest day)
         logger.info(f"Searching for history for user {user_id}")
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         # If no history exists, create initial entry
@@ -246,10 +246,10 @@ async def update_set_progress(user_id: str, request: UpdateSetProgressRequest):
     try:
         history_collection = db["history"]
         
-        # Get the latest history entry
+        # Get the latest history entry (sort by created_at to get the current active day)
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         if not history_doc:
@@ -324,10 +324,10 @@ async def complete_set(user_id: str, request: CompleteSetRequest):
     try:
         history_collection = db["history"]
         
-        # Get the latest history entry
+        # Get the latest history entry (sort by created_at to get the current active day)
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         if not history_doc:
@@ -378,64 +378,66 @@ async def complete_set(user_id: str, request: CompleteSetRequest):
                 current_day_index = history_doc.get('current_day_index', 0)
                 next_day_index = current_day_index + 1
                 
-                # Check if there's a next day in the plan
-                if next_day_index < len(workout_plan):
-                    next_day = workout_plan[next_day_index]
-                    day_name = next_day.get('day')
-                    set_ids = next_day.get('exercises_ids', [])
-                    
-                    # Create progress tracking for the new day with full nested data
-                    # This mirrors the logic in create_initial_history_entry
-                    sets_collection = db["sets"]
-                    exercises_collection = db["exercises"]
-                    new_sets_progress = []
-                    
-                    for set_id in set_ids:
-                        set_doc = sets_collection.find_one({'_id': set_id})
-                        if set_doc:
-                            # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
-                            exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
-                            
-                            # Fetch exercise details
-                            exercise_doc = None
-                            if exercise_id:
-                                exercise_doc = exercises_collection.find_one({'_id': exercise_id})
-                            
-                            # Create progress tracking entry with all relevant data
-                            set_progress = {
-                                'set_id': set_id,
-                                'set_name': set_doc.get('name'),
-                                'exercise_id': exercise_id,
-                                'exercise_name': exercise_doc.get('name') if exercise_doc else None,
-                                'target_reps': set_doc.get('reps'),
-                                'completed_reps': 0,
-                                'target_weight': set_doc.get('weight'),
-                                'target_duration_sec': set_doc.get('duration_sec'),
-                                'is_complete': False,
-                                'completed_at': None
-                            }
-                            new_sets_progress.append(set_progress)
-                    
-                    # Create new history entry for the next day
-                    new_history_id = str(ObjectId())
-                    new_history_doc = {
-                        '_id': new_history_id,
-                        'user_id': user_id,
-                        'workout_id': workout_id,
-                        'current_day_index': next_day_index,
-                        'day_name': day_name,
-                        'sets_progress': new_sets_progress,
-                        'created_at': now,
-                        'updated_at': now
-                    }
-                    
-                    history_collection.insert_one(new_history_doc)
-                    new_day_started = True
-                    new_day_name = day_name
-                    
-                    logger.info(f"Created new history entry for {day_name} (day {next_day_index + 1}) with {len(new_sets_progress)} sets")
-                else:
-                    logger.info(f"User {user_id} has completed the entire workout plan!")
+                # Check if we need to loop back to the first day
+                if next_day_index >= len(workout_plan):
+                    # Loop back to the first day of the workout plan
+                    next_day_index = 0
+                    logger.info(f"User {user_id} completed all days in the workout plan, looping back to first day")
+                
+                next_day = workout_plan[next_day_index]
+                day_name = next_day.get('day')
+                set_ids = next_day.get('exercises_ids', [])
+                
+                # Create progress tracking for the new day with full nested data
+                # This mirrors the logic in create_initial_history_entry
+                sets_collection = db["sets"]
+                exercises_collection = db["exercises"]
+                new_sets_progress = []
+                
+                for set_id in set_ids:
+                    set_doc = sets_collection.find_one({'_id': set_id})
+                    if set_doc:
+                        # Get exercise_id from set (handles both 'exercise_id' and 'excersise_id' typo)
+                        exercise_id = set_doc.get('exercise_id') or set_doc.get('excersise_id')
+                        
+                        # Fetch exercise details
+                        exercise_doc = None
+                        if exercise_id:
+                            exercise_doc = exercises_collection.find_one({'_id': exercise_id})
+                        
+                        # Create progress tracking entry with all relevant data
+                        set_progress = {
+                            'set_id': set_id,
+                            'set_name': set_doc.get('name'),
+                            'exercise_id': exercise_id,
+                            'exercise_name': exercise_doc.get('name') if exercise_doc else None,
+                            'target_reps': set_doc.get('reps'),
+                            'completed_reps': 0,
+                            'target_weight': set_doc.get('weight'),
+                            'target_duration_sec': set_doc.get('duration_sec'),
+                            'is_complete': False,
+                            'completed_at': None
+                        }
+                        new_sets_progress.append(set_progress)
+                
+                # Create new history entry for the next day
+                new_history_id = str(ObjectId())
+                new_history_doc = {
+                    '_id': new_history_id,
+                    'user_id': user_id,
+                    'workout_id': workout_id,
+                    'current_day_index': next_day_index,
+                    'day_name': day_name,
+                    'sets_progress': new_sets_progress,
+                    'created_at': now,
+                    'updated_at': now
+                }
+                
+                history_collection.insert_one(new_history_doc)
+                new_day_started = True
+                new_day_name = day_name
+                
+                logger.info(f"Created new history entry for {day_name} (day {next_day_index + 1}) with {len(new_sets_progress)} sets")
         
         response = {
             'message': f"Set '{request.set_id}' marked as complete",

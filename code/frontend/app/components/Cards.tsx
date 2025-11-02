@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { GiSkateboard } from 'react-icons/gi';
-import { LuDumbbell } from 'react-icons/lu';
-import { FiCheck, FiPlus } from 'react-icons/fi';
+import React, { useEffect, useState } from "react";
+import { GiSkateboard } from "react-icons/gi";
+import { LuDumbbell } from "react-icons/lu";
+import { FiCheck, FiPlus } from "react-icons/fi";
 
 interface Activity {
   id: string;
@@ -10,19 +10,52 @@ interface Activity {
   freitext?: boolean;
 }
 
-export default function Cards() {
+interface CardsProps {
+  onSelect?: (selected: string[]) => void;
+  selected?: string[];
+}
+
+export default function Cards({
+  onSelect,
+  selected: controlledSelected = [],
+}: CardsProps) {
+  const [selected, setSelected] = useState<string[]>(
+    controlledSelected as string[]
+  );
+
   const activities: Activity[] = [
-    { id: 'skateboard', label: 'Skateboard', icon: <GiSkateboard className="w-10 h-10 mb-2 text-gray-700" /> },
-    { id: 'strength', label: 'Strength', icon: <LuDumbbell className="w-10 h-10 mb-2 text-gray-700" /> },
-    { id: 'custom', label: 'Add my own', icon: <FiPlus className="w-10 h-10 mb-2 text-gray-700" />, freitext: true },
+    {
+      id: "skateboard",
+      label: "Skateboard",
+      icon: <GiSkateboard className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
+    },
+    {
+      id: "strength",
+      label: "Strength",
+      icon: <LuDumbbell className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
+    },
+    {
+      id: "custom",
+      label: "Add my own",
+      icon: <FiPlus className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
+      freitext: true,
+    },
   ];
 
-  const [selected, setSelected] = useState<string[]>(['skateboard', 'strength']);
+  // set default selected from props
+  useEffect(() => {
+    setSelected(controlledSelected);
+  }, [controlledSelected]);
 
   const toggle = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((prev) => {
+      const updated = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+
+      if (onSelect) onSelect(updated);
+      return updated;
+    });
   };
 
   return (
@@ -37,6 +70,7 @@ export default function Cards() {
               type="button"
               onClick={() => toggle(activity.id)}
               className={`
+                max-sm:w-24 max-sm:h-24
                 relative flex flex-col items-center justify-center
                 border rounded-md w-40 h-40
                 transition-all duration-150
@@ -64,6 +98,7 @@ export default function Cards() {
             type="button"
             onClick={() => toggle(activity.id)}
             className={`
+              max-sm:w-24 max-sm:h-24
               relative flex flex-col items-center justify-center
               border rounded-md w-40 h-40
               transition-all duration-150

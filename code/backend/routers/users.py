@@ -47,8 +47,7 @@ Example output: "push ups chest strength bodyweight upper body" """
                 {"role": "system", "content": "You are a fitness search assistant. Generate concise, relevant search keywords."},
                 {"role": "user", "content": keyword_prompt}
             ],
-            temperature=0.5,
-            max_tokens=100
+            max_completion_tokens=100
         )
         
         keywords = response.choices[0].message.content.strip()
@@ -766,12 +765,11 @@ Return a JSON object with:
 If nothing is mentioned for a field, return an empty list or null. Return ONLY valid JSON."""
 
                 extraction_response = openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-5-mini",
                     messages=[
                         {"role": "system", "content": "You are a fitness data extraction assistant. Extract information from user queries and return only valid JSON."},
                         {"role": "user", "content": extraction_prompt}
                     ],
-                    temperature=0.3,
                     response_format={"type": "json_object"}
                 )
                 
@@ -869,19 +867,83 @@ Note: Exercises with higher "score" values are more relevant to the user's goal.
 
 Create a personalized workout plan. Return ONLY valid JSON, no additional text."""
 
+        # Define JSON schema for structured outputs
+        workout_schema = {
+            "name": "workout_plan_schema",
+            "description": "Schema for AI-generated workout plans with mandatory 3+ exercises per day",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "workout_name": {
+                        "type": "string",
+                        "description": "Descriptive name for the workout plan"
+                    },
+                    "workout_plan": {
+                        "type": "array",
+                        "description": "Array of daily workout plans",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "day": {
+                                    "type": "string",
+                                    "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                                    "description": "Day of the week"
+                                },
+                                "exercises": {
+                                    "type": "array",
+                                    "description": "MANDATORY: Must contain at least 3 exercises",
+                                    "minItems": 3,
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "exercise_id": {
+                                                "type": "string",
+                                                "description": "Exact exercise ID from provided list"
+                                            },
+                                            "reps": {
+                                                "type": ["integer", "null"],
+                                                "description": "Number of repetitions"
+                                            },
+                                            "weight": {
+                                                "type": ["integer", "null"],
+                                                "description": "Weight in kg"
+                                            },
+                                            "duration_sec": {
+                                                "type": ["integer", "null"],
+                                                "description": "Duration in seconds"
+                                            }
+                                        },
+                                        "required": ["exercise_id", "reps", "weight", "duration_sec"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": ["day", "exercises"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                "required": ["workout_name", "workout_plan"],
+                "additionalProperties": False
+            }
+        }
+        
         logger.info("="*60)
-        logger.info("STEP 5: Generating workout plan with LLM")
+        logger.info("STEP 5: Generating workout plan with LLM (using structured outputs)")
         logger.info("="*60)
-        logger.info("Calling OpenAI API to generate workout plan...")
+        logger.info("Calling OpenAI API to generate workout plan with schema enforcement...")
         try:
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-5-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                temperature=0.7,
-                response_format={"type": "json_object"}
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": workout_schema
+                }
             )
             
             content = response.choices[0].message.content

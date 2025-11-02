@@ -8,5 +8,5 @@ export const theme: MantineThemeOverride = {
     fontWeight: "600", // default for headings
   },
 
-  primaryColor: "teal",
+  primaryColor: "red",
 };
