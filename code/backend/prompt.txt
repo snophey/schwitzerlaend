@@ -14,41 +14,31 @@ Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/en
 
 ### WORKOUT PLAN CREATION
 
-Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week. Use exact exercise IDs from the provided list only.
+Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week.
 
 **CRITICAL REQUIREMENT: Each workout day MUST include EXACTLY 3 exercises minimum. This is NON-NEGOTIABLE.**
-Consider the user's goals when selecting these 3+ exercises, ensuring variety and proper muscle group targeting.
 
-Return JSON with this structure:
-{
-    "workout_name": "Descriptive name",
-    "workout_plan": [
-        {
-            "day": "Monday",
-            "exercises": [
-                {
-                    "exercise_id": "exact_exercise_id_from_list",
-                    "reps": int,
-                    "weight": int|null,
-                    "duration_sec": int|null
-                },
-                {
-                    "exercise_id": "exact_exercise_id_from_list",
-                    "reps": int,
-                    "weight": int|null
-                    "duration_sec": int|null
-                } 
-            ]
-        }
-    ]
-}
+### OUTPUT FORMAT
 
-Rules:
-- **MANDATORY: Each workout day MUST contain at least 3 exercises** - no exceptions
-- Use exact exercise IDs from provided list
-- Include only days with exercises (no rest days)
-- Repetition-based: set "reps", leave weight/duration_sec null
-- Time-based: set "duration_sec", leave reps/weight null
-- Weighted: set both "reps" and "weight", leave duration_sec null
-- Days: Monday through Sunday only
-- Ensure all 3+ exercises per day align with the user's stated goals and fitness level
+Return JSON with:
+- `workout_name`: Descriptive name for the plan
+- `workout_plan`: Array of daily plans with:
+  - `day`: Day name (Monday-Sunday)
+  - `exercises`: Array of exercises (minimum 3) with:
+    - `exercise_id`: Exact ID from provided list
+    - `reps`: Number of repetitions (or null)
+    - `weight`: Weight in kg (or null)
+    - `duration_sec`: Duration in seconds (or null)
+
+### RULES
+
+1. **MANDATORY**: Each day MUST have at least 3 exercises
+2. **Exercise IDs**: Use ONLY exact IDs from the provided exercise list
+3. **Days**: Include only training days (Monday-Sunday), no rest days in array
+4. **Exercise Types**:
+   - Reps-based: Set reps, optionally weight, null for duration_sec
+   - Time-based: Set duration_sec, null for reps and weight
+   - Weighted reps: Set both reps and weight, null for duration_sec
+5. **Goal Alignment**: Ensure all exercises match user's goals and fitness level
+6. **Muscle Distribution**: Balance muscle groups and allow recovery between days
+7. **Progressive Overload**: Structure the week to progressively challenge the user
