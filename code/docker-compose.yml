@@ -24,6 +24,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: unless-stopped
     volumes:
-      - ./secrets:/app/secrets
+      - ./backend/secrets:/app/secrets
 
   

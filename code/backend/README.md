@@ -603,3 +603,8 @@ curl http://localhost:8000/workout-plan/dummy
 
 See the main project license file.
 
+## Special for Mac M2
+
+```
+docker buildx build --platform linux/amd64 -t backend-api .
+```
