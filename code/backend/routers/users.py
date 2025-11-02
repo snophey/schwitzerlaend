@@ -9,6 +9,7 @@ from bson import ObjectId
 import os
 import json
 from openai import OpenAI
+import random
 
 # Set up logger to ensure it outputs to console
 logger = logging.getLogger(__name__)

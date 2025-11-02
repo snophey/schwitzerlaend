@@ -36,7 +36,7 @@ export default function Onboarding() {
           <Image
             src={logo}
             alt="Schwitzerland logo"
-            w={72}
+            w={96}
             mx="auto"
             styles={{
               root: { transform: "translateX(-0.5em)" },
@@ -57,7 +57,8 @@ export default function Onboarding() {
         {/* Description */}
         <Text c="dimmed" fz="sm" maw={280}>
           Mit Schwitzerland trackst du dein Training: egal ob du pumpst, skatest
-          oder frierst. Eine App für alle Sportarten, das ganze Jahr.
+          oder auf andere Art deine Kalorien verbrannt. Eine App für alle
+          Sportarten, das ganze Jahr.
         </Text>
 
         {/* Button */}
