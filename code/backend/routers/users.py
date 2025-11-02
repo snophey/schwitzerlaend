@@ -1005,31 +1005,40 @@ Create a personalized workout plan. Return ONLY valid JSON, no additional text."
                 duration_sec = exercise_data.get("duration_sec")
                 
                 if exercise_id in created_sets:
-                    set_id = created_sets[exercise_id]
-                    logger.info(f"Reusing existing set {set_id} for {exercise_name}")
+                    set_ids_for_exercise = created_sets[exercise_id]
+                    logger.info(f"Reusing existing sets {set_ids_for_exercise} for {exercise_name}")
+                    day_set_ids.extend(set_ids_for_exercise)
                 else:
-                    set_id = str(ObjectId())
-                    set_name = f"{exercise_name} Set"
+                    # Create 1 to 5 sets (randomly) with unique IDs
+                    num_sets = random.randint(1, 5)
+                    set_ids_for_exercise = []
                     
-                    set_doc = {
-                        '_id': set_id,
-                        'name': set_name,
-                        'excersise_id': exercise_id,
-                        'exercise_id': exercise_id,
-                    }
+                    for i in range(num_sets):
+                        set_id = str(ObjectId())
+                        set_name = f"{exercise_name} Set"
+                        
+                        set_doc = {
+                            '_id': set_id,
+                            'name': set_name,
+                            'excersise_id': exercise_id,
+                            'exercise_id': exercise_id,
+                        }
+                        
+                        if reps is not None:
+                            set_doc['reps'] = reps
+                        if weight is not None:
+                            set_doc['weight'] = weight
+                        if duration_sec is not None:
+                            set_doc['duration_sec'] = duration_sec
+                        
+                        sets_collection.insert_one(set_doc)
+                        set_ids_for_exercise.append(set_id)
+                        logger.info(f"Created set {set_id} for {exercise_name} ({i+1}/{num_sets})")
                     
-                    if reps is not None:
-                        set_doc['reps'] = reps
-                    if weight is not None:
-                        set_doc['weight'] = weight
-                    if duration_sec is not None:
-                        set_doc['duration_sec'] = duration_sec
-                    
-                    sets_collection.insert_one(set_doc)
-                    created_sets[exercise_id] = set_id
-                    logger.info(f"Created set {set_id} for {exercise_name}")
-                
-                day_set_ids.append(set_id)
+                    # Store all set_ids for reuse logic
+                    created_sets[exercise_id] = set_ids_for_exercise
+                    # Append all created set IDs to day_set_ids
+                    day_set_ids.extend(set_ids_for_exercise)
             
             if day_set_ids:
                 day_plan = {
