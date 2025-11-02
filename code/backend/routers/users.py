@@ -9,6 +9,7 @@ from bson import ObjectId
 import os
 import json
 from openai import OpenAI
+import random
 
 # Set up logger to ensure it outputs to console
 logger = logging.getLogger(__name__)
@@ -977,13 +978,20 @@ Create a personalized workout plan. Return ONLY valid JSON, no additional text."
         for day_plan_raw in day_plans_raw:
             day = day_plan_raw.get("day")
             exercises_raw = day_plan_raw.get("exercises", [])
-            
+
             if not day or not exercises_raw:
                 continue
-            
+
+            import random
             day_set_ids = []
-            
+
+            # Build a new exercises list, duplicating each exercise 1-5 times in a row
+            exercises_with_duplicates = []
             for exercise_data in exercises_raw:
+                n_reps = random.randint(1, 5)
+                exercises_with_duplicates.extend([exercise_data] * n_reps)
+
+            for exercise_data in exercises_with_duplicates:
                 exercise_id = exercise_data.get("exercise_id")
                 if not exercise_id:
                     logger.warning(f"Skipping exercise with no ID in {day}")
