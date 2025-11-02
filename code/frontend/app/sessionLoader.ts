@@ -9,6 +9,7 @@ export async function sessionLoader({ request }: { request: Request }) {
     // no user session yet --> create one
     const newUserId = crypto.randomUUID();
 
+    console.log("Creating new session for userId:", newUserId);
     session.set("userId", newUserId);
     session.set("createdAt", new Date().toISOString());
 
