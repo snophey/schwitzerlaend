@@ -288,6 +288,21 @@ export default function OnboardingForm() {
                   placeholder="Do you have any injuries or physical limitations we should be aware of?"
                 />
               </Stack>
+
+              {/* --- Loading screen ---*/}
+              <Stack
+                justify="center"
+                gap="md"
+                mt="xl"
+                display={step === 5 ? "flex" : "none"}
+              >
+                <Title order={2} mb={"lg"}>
+                  Generating your personalized workout plan...
+                </Title>
+                <Text size="sm">
+                  In the meantime, you can do 20 jumping jacks to warm up!
+                </Text>
+              </Stack>
             </div>
 
             <Group justify="space-between" mt="auto" mb="md">
@@ -308,21 +323,6 @@ export default function OnboardingForm() {
               )}
             </Group>
           </Flex>
-
-          {/* --- Loading screen ---*/}
-          <Stack
-            justify="center"
-            gap="md"
-            mt="xl"
-            display={step === 5 ? "flex" : "none"}
-          >
-            <Title order={2} mb={"lg"}>
-              Generating your personalized workout plan...
-            </Title>
-            <Text size="sm">
-              In the meantime, you can do 20 jumping jacks to warm up!
-            </Text>
-          </Stack>
         </Stack>
       </Form>
     </PageWrapper>
