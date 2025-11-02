@@ -232,11 +232,20 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
         <Text size="md" style={{ flex: 1 }}>
           {setIndex}
         </Text>
-        <Text size="md" style={{ flex: 1 }}>
-          {targetWeight}
-        </Text>
+        {set.target_reps !== null && (
+          <NumberInput
+            name="weight"
+            variant="filled"
+            flex={4}
+            value={targetWeight}
+            readOnly={!!set.completed_reps}
+            placeholder={`${set.target_reps} Reps`}
+            style={{ flexBasis: "40px", flexShrink: 1, flexGrow: 1 }}
+            required
+          />
+        )}
         <Text size="md" style={{ flex: 1, color: "gray" }}>
-          x
+          kg{" "}
         </Text>
         {set.target_reps !== null && (
           <NumberInput
@@ -247,7 +256,7 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
             value={set.completed_reps > 0 ? set.completed_reps : undefined}
             readOnly={!!set.completed_reps}
             placeholder={`${set.target_reps} Reps`}
-            style={{ flexBasis: "60px", flexShrink: 1, flexGrow: 1 }}
+            style={{ flexBasis: "40px", flexShrink: 1, flexGrow: 1 }}
             required
           />
         )}
@@ -256,7 +265,7 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
             name="completedDurationSec"
             flex={4}
             min={0}
-            style={{ flexBasis: "60px", flexShrink: 1, flexGrow: 1 }}
+            style={{ flexBasis: "40px", flexShrink: 1, flexGrow: 1 }}
             variant="filled"
             value={set.completed_reps > 0 ? set.completed_reps : undefined}
             readOnly={!!set.completed_reps}
