@@ -175,7 +175,10 @@ export default function OnboardingForm() {
                 {selectedSports.map((sport) => (
                   <Stack align="flex-start" gap="sm" key={sport}>
                     <Title order={3} size="sm" mt="lg">
-                      {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                      {sport === "custom" && customSportName
+                        ? customSportName.charAt(0).toUpperCase() +
+                          customSportName.slice(1)
+                        : sport.charAt(0).toUpperCase() + sport.slice(1)}
                     </Title>
                     <WeekdaySelector prefix={`${sport.toLowerCase()}-`} />
                   </Stack>
@@ -217,7 +220,10 @@ export default function OnboardingForm() {
                     key={sport}
                   >
                     <Title order={3} size="sm" mb="xs">
-                      {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                      {sport === "custom" && customSportName
+                        ? customSportName.charAt(0).toUpperCase() +
+                          customSportName.slice(1)
+                        : sport.charAt(0).toUpperCase() + sport.slice(1)}
                     </Title>
                     <SkateStrengthCards name="experience-skateboard" />
 
@@ -250,7 +256,12 @@ export default function OnboardingForm() {
                     mt="md"
                     variant="filled"
                     name={`goals-${sport.toLowerCase()}`}
-                    label={sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    label={
+                      sport === "custom" && customSportName
+                        ? customSportName.charAt(0).toUpperCase() +
+                          customSportName.slice(1)
+                        : sport.charAt(0).toUpperCase() + sport.slice(1)
+                    }
                     placeholder={`Describe your goals for ${sport}`}
                   />
                 ))}
@@ -277,6 +288,21 @@ export default function OnboardingForm() {
                   placeholder="Do you have any injuries or physical limitations we should be aware of?"
                 />
               </Stack>
+
+              {/* --- Loading screen ---*/}
+              <Stack
+                justify="center"
+                gap="md"
+                mt="xl"
+                display={step === 5 ? "flex" : "none"}
+              >
+                <Title order={2} mb={"lg"}>
+                  Generating your personalized workout plan...
+                </Title>
+                <Text size="sm">
+                  In the meantime, you can do 20 jumping jacks to warm up!
+                </Text>
+              </Stack>
             </div>
 
             <Group justify="space-between" mt="auto" mb="md">
@@ -297,21 +323,6 @@ export default function OnboardingForm() {
               )}
             </Group>
           </Flex>
-
-          {/* --- Loading screen ---*/}
-          <Stack
-            justify="center"
-            gap="md"
-            mt="xl"
-            display={step === 5 ? "flex" : "none"}
-          >
-            <Title order={2} mb={"lg"}>
-              Generating your personalized workout plan...
-            </Title>
-            <Text size="sm">
-              In the meantime, you can do 20 jumping jacks to warm up!
-            </Text>
-          </Stack>
         </Stack>
       </Form>
     </PageWrapper>

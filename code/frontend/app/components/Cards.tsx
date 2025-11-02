@@ -27,17 +27,17 @@ export default function Cards({
     {
       id: "skateboard",
       label: "Skateboard",
-      icon: <GiSkateboard className="w-10 h-10 mb-2 text-gray-700" />,
+      icon: <GiSkateboard className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
     },
     {
       id: "strength",
       label: "Strength",
-      icon: <LuDumbbell className="w-10 h-10 mb-2 text-gray-700" />,
+      icon: <LuDumbbell className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
     },
     {
       id: "custom",
       label: "Add my own",
-      icon: <FiPlus className="w-10 h-10 mb-2 text-gray-700" />,
+      icon: <FiPlus className="max-sm:w-8 w-10 h-10 mb-2 text-gray-700" />,
       freitext: true,
     },
   ];
@@ -70,6 +70,7 @@ export default function Cards({
               type="button"
               onClick={() => toggle(activity.id)}
               className={`
+                max-sm:w-24 max-sm:h-24
                 relative flex flex-col items-center justify-center
                 border rounded-md w-40 h-40
                 transition-all duration-150
@@ -97,6 +98,7 @@ export default function Cards({
             type="button"
             onClick={() => toggle(activity.id)}
             className={`
+              max-sm:w-24 max-sm:h-24
               relative flex flex-col items-center justify-center
               border rounded-md w-40 h-40
               transition-all duration-150
