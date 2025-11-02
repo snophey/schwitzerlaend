@@ -246,10 +246,10 @@ async def update_set_progress(user_id: str, request: UpdateSetProgressRequest):
     try:
         history_collection = db["history"]
         
-        # Get the latest history entry
+        # Get the latest history entry (sort by created_at to get the current active day)
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         if not history_doc:
@@ -324,10 +324,10 @@ async def complete_set(user_id: str, request: CompleteSetRequest):
     try:
         history_collection = db["history"]
         
-        # Get the latest history entry
+        # Get the latest history entry (sort by created_at to get the current active day)
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         if not history_doc:
