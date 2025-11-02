@@ -16,7 +16,10 @@ Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/en
 
 Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week.
 
-**CRITICAL REQUIREMENT: Each workout day MUST include EXACTLY 3 exercises minimum. This is NON-NEGOTIABLE.**
+**CRITICAL REQUIREMENTS:**
+1. **MINIMUM 3 EXERCISES PER DAY** - Absolutely required, no exceptions
+2. **NO DUPLICATE EXERCISES** - Each exercise within a day must be unique
+3. **VARIETY IS MANDATORY** - Target different muscle groups within each day
 
 ### OUTPUT FORMAT
 
@@ -24,21 +27,34 @@ Return JSON with:
 - `workout_name`: Descriptive name for the plan
 - `workout_plan`: Array of daily plans with:
   - `day`: Day name (Monday-Sunday)
-  - `exercises`: Array of exercises (minimum 3) with:
-    - `exercise_id`: Exact ID from provided list
+  - `exercises`: Array of exercises (MINIMUM 3, all different) with:
+    - `exercise_id`: Exact ID from provided list (no duplicates per day)
     - `reps`: Number of repetitions (or null)
     - `weight`: Weight in kg (or null)
     - `duration_sec`: Duration in seconds (or null)
 
-### RULES
+### EXERCISE SELECTION RULES
 
-1. **MANDATORY**: Each day MUST have at least 3 exercises
-2. **Exercise IDs**: Use ONLY exact IDs from the provided exercise list
-3. **Days**: Include only training days (Monday-Sunday), no rest days in array
-4. **Exercise Types**:
-   - Reps-based: Set reps, optionally weight, null for duration_sec
-   - Time-based: Set duration_sec, null for reps and weight
-   - Weighted reps: Set both reps and weight, null for duration_sec
-5. **Goal Alignment**: Ensure all exercises match user's goals and fitness level
-6. **Muscle Distribution**: Balance muscle groups and allow recovery between days
-7. **Progressive Overload**: Structure the week to progressively challenge the user
+1. **MINIMUM 3 EXERCISES PER DAY**: Every single day MUST have at least 3 different exercises
+2. **NO DUPLICATES WITHIN A DAY**: Never use the same exercise_id twice in the same day
+3. **EXERCISE VARIETY**: 
+   - For full body workouts: Include exercises targeting different muscle groups (e.g., push, pull, legs)
+   - For split routines: Focus on the target muscle group but still include 3+ different exercises
+   - Example GOOD: Bench Press + Squats + Pull-ups (3 different muscle groups)
+   - Example BAD: Bench Press + Bench Press (duplicate exercise)
+4. **Exercise IDs**: Use ONLY exact exercise_id values from the provided exercise list
+5. **Days**: Use requested training days, include only actual training days (no rest days in array)
+6. **Exercise Parameters**:
+   - Reps-based: Set reps (required), optionally weight, null for duration_sec
+   - Time-based: Set duration_sec (required), null for reps and weight
+   - Weighted reps: Set both reps and weight (required), null for duration_sec
+7. **Goal Alignment**: Select exercises that match the user's stated fitness goal and level
+8. **Muscle Recovery**: Allow adequate recovery time between days for the same muscle groups
+9. **Progressive Challenge**: Structure the week to progressively build difficulty
+
+### QUALITY CHECKLIST (Verify before returning):
+- [ ] Does EVERY day have at least 3 exercises?
+- [ ] Are all exercise_id values within each day unique (no duplicates)?
+- [ ] Do exercises within each day target different muscle groups?
+- [ ] Are all exercise_id values from the provided list?
+- [ ] Do the exercises match the user's fitness goals?
