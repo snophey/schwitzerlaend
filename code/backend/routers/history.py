@@ -133,11 +133,11 @@ async def get_latest_history(user_id: str):
     try:
         history_collection = db["history"]
         
-        # Find the most recent history entry for this user
+        # Find the most recent history entry for this user (sort by created_at to get the latest day)
         logger.info(f"Searching for history for user {user_id}")
         history_doc = history_collection.find_one(
             {'user_id': user_id},
-            sort=[('updated_at', -1)]
+            sort=[('created_at', -1)]
         )
         
         # If no history exists, create initial entry
