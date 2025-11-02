@@ -239,7 +239,7 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
             flex={4}
             value={targetWeight}
             readOnly={!!set.completed_reps}
-            placeholder={`${set.target_reps} Reps`}
+            placeholder={`Weight`}
             style={{ flexBasis: "40px", flexShrink: 1, flexGrow: 1 }}
             required
           />
