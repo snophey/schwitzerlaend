@@ -47,6 +47,7 @@ Example output: "push ups chest strength bodyweight upper body" """
                 {"role": "system", "content": "You are a fitness search assistant. Generate concise, relevant search keywords."},
                 {"role": "user", "content": keyword_prompt}
             ],
+            temperature=0.5,
             max_completion_tokens=100
         )
         
@@ -765,11 +766,12 @@ Return a JSON object with:
 If nothing is mentioned for a field, return an empty list or null. Return ONLY valid JSON."""
 
                 extraction_response = openai_client.chat.completions.create(
-                    model="gpt-5-mini",
+                    model="gpt-4o-mini",
                     messages=[
                         {"role": "system", "content": "You are a fitness data extraction assistant. Extract information from user queries and return only valid JSON."},
                         {"role": "user", "content": extraction_prompt}
                     ],
+                    temperature=0.2,
                     response_format={"type": "json_object"}
                 )
                 
@@ -935,11 +937,12 @@ Create a personalized workout plan. Return ONLY valid JSON, no additional text."
         logger.info("Calling OpenAI API to generate workout plan with schema enforcement...")
         try:
             response = openai_client.chat.completions.create(
-                model="gpt-5-mini",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
+                temperature=0.7,
                 response_format={
                     "type": "json_schema",
                     "json_schema": workout_schema

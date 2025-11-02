@@ -57,7 +57,8 @@ export default function Onboarding() {
         {/* Description */}
         <Text c="dimmed" fz="sm" maw={280}>
           Mit Schwitzerland trackst du dein Training: egal ob du pumpst, skatest
-          oder frierst. Eine App für alle Sportarten, das ganze Jahr.
+          oder auf andere Art deine Kalorien verbrannt. Eine App für alle
+          Sportarten, das ganze Jahr.
         </Text>
 
         {/* Button */}
