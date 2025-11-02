@@ -36,7 +36,7 @@ export default function Onboarding() {
           <Image
             src={logo}
             alt="Schwitzerland logo"
-            w={72}
+            w={96}
             mx="auto"
             styles={{
               root: { transform: "translateX(-0.5em)" },
