@@ -88,7 +88,11 @@ export default function Home({ loaderData }: { loaderData: LoaderData }) {
               reps: set.reps,
               weight: set.weight,
               duration_sec: set.duration_sec,
-              description: set.exercise.instructions.join(" "),
+              description:
+                Array.isArray(set.exercise?.instructions) &&
+                set.exercise.instructions.length > 0
+                  ? set.exercise.instructions.join(" ")
+                  : "No description found.",
             }));
 
             let strengthCount = 0;
@@ -129,7 +133,9 @@ export default function Home({ loaderData }: { loaderData: LoaderData }) {
             );
           }
         )}
-        <Button component={Link} size="lg" to={"/workout"} fullWidth>Start Training</Button>
+        <Button component={Link} size="lg" to={"/workout"} fullWidth>
+          Start Training
+        </Button>
       </div>
     </PageWrapper>
   );
