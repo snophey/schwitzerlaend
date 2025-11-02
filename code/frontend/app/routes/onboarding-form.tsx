@@ -23,6 +23,7 @@ import { Textarea } from "@mantine/core";
 import { getSession } from "~/sessions.server";
 import { TbInfoSquare } from "react-icons/tb";
 import { useActionData } from "react-router";
+import loadingAnimation from "assets/img/curls.gif";
 import Cards from "~/components/Cards";
 import SkateStrengthCards from "~/components/SkateStrengthCards";
 
@@ -296,10 +297,25 @@ export default function OnboardingForm() {
                 mt="xl"
                 display={step === 5 ? "flex" : "none"}
               >
+                <Image
+                  src={loadingAnimation}
+                  alt="Loading animation"
+                  fit="contain"
+                  style={{
+                    margin: "-4rem auto -1rem auto",
+                    maxWidth: "20rem",
+                  }}
+                />
                 <Title order={2} mb={"lg"}>
                   Generating your personalized workout plan...
                 </Title>
-                <Text size="sm">
+                <Text
+                  size="md"
+                  style={{
+                    maxWidth: "20em",
+                    margin: "0 auto",
+                  }}
+                >
                   In the meantime, you can do 20 jumping jacks to warm up!
                 </Text>
               </Stack>
