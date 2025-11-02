@@ -15,7 +15,9 @@ Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/en
 ### WORKOUT PLAN CREATION
 
 Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week. Use exact exercise IDs from the provided list only.
-Every day should have at least 3 exercises consider the goals of the user. 
+
+**CRITICAL REQUIREMENT: Each workout day MUST include EXACTLY 3 exercises minimum. This is NON-NEGOTIABLE.**
+Consider the user's goals when selecting these 3+ exercises, ensuring variety and proper muscle group targeting.
 
 Return JSON with this structure:
 {
@@ -42,9 +44,11 @@ Return JSON with this structure:
 }
 
 Rules:
+- **MANDATORY: Each workout day MUST contain at least 3 exercises** - no exceptions
 - Use exact exercise IDs from provided list
 - Include only days with exercises (no rest days)
 - Repetition-based: set "reps", leave weight/duration_sec null
 - Time-based: set "duration_sec", leave reps/weight null
 - Weighted: set both "reps" and "weight", leave duration_sec null
-- Days: Monday through Sunday only  
+- Days: Monday through Sunday only
+- Ensure all 3+ exercises per day align with the user's stated goals and fitness level
