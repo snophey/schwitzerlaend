@@ -16,6 +16,8 @@ import { TbCheck, TbInfoCircle } from "react-icons/tb";
 import { Configuration, HistoryApi, ResponseError } from "~/api-client";
 import { getSession } from "~/sessions.server";
 import { Form, redirect } from "react-router";
+import { VictoryModal } from "~/components/VictoryModal";
+import { useDisclosure } from "@mantine/hooks";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -276,6 +278,7 @@ export default function Workout({
 }: {
   loaderData: Route.LoaderData;
 }) {
+  const [opened, { close, open }] = useDisclosure(false);
   console.log("Loader data:", loaderData);
 
   const allSetIds = JSON.stringify(loaderData.sets.map((set: ExerciseSet) => set.set_id));
@@ -296,11 +299,12 @@ export default function Workout({
         ))}
         <Form style={{ marginTop: "auto" }} method="post" action="/workout">
           <input type="hidden" name="setIds" value={allSetIds} />
-          <Button type="submit" size="lg" mt="auto" fullWidth>
+          <Button type="submit" size="lg" mt="auto" fullWidth onClick={open}>
             Complete Workout
           </Button>
         </Form>
       </Stack>
+      <VictoryModal opened={opened} close={close} open={open} />
     </PageWrapper>
   );
 }
