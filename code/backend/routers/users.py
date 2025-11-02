@@ -42,7 +42,7 @@ Example output: "push ups chest strength bodyweight upper body" """
 
         logger.info("Calling OpenAI API for keyword generation...")
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
             messages=[
                 {"role": "system", "content": "You are a fitness search assistant. Generate concise, relevant search keywords."},
                 {"role": "user", "content": keyword_prompt}
