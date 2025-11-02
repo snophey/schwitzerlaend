@@ -15,6 +15,7 @@ Detect from user input: level (beginner/advanced), goal (strength/hypertrophy/en
 ### WORKOUT PLAN CREATION
 
 Create a personalized weekly workout plan (3-5 days) that matches user goals, distributes exercises appropriately, ensures recovery between muscle groups, and progresses throughout the week. Use exact exercise IDs from the provided list only.
+Every day should have at least 3 exercises consider the goals of the user. 
 
 Return JSON with this structure:
 {
@@ -25,10 +26,16 @@ Return JSON with this structure:
             "exercises": [
                 {
                     "exercise_id": "exact_exercise_id_from_list",
-                    "reps": 15,
-                    "weight": null,
-                    "duration_sec": null
-                }
+                    "reps": int,
+                    "weight": int|null,
+                    "duration_sec": int|null
+                },
+                {
+                    "exercise_id": "exact_exercise_id_from_list",
+                    "reps": int,
+                    "weight": int|null
+                    "duration_sec": int|null
+                } 
             ]
         }
     ]
