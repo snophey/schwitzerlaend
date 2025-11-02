@@ -12,13 +12,13 @@ export function WeekdayCheckbox({ label, name }: { label: string, name?: string 
 export function WeekdaySelector({ prefix = "" }: { prefix: string }) {
   return (
     <Group style={{ alignSelf: "stretch" }} gap={"xs"} justify="space-between">
-      <WeekdayCheckbox label="MON" name={prefix + "mon"} />
-      <WeekdayCheckbox label="TUE" name={prefix + "tue"} />
-      <WeekdayCheckbox label="WED" name={prefix + "wed"} />
-      <WeekdayCheckbox label="THU" name={prefix + "thu"} />
-      <WeekdayCheckbox label="FRI" name={prefix + "fri"} />
-      <WeekdayCheckbox label="SAT" name={prefix + "sat"} />
-      <WeekdayCheckbox label="SUN" name={prefix + "sun"} />
-    </Group> 
-  )
+      <WeekdayCheckbox label="MON" name={prefix + "monday"} />
+      <WeekdayCheckbox label="TUE" name={prefix + "tuesday"} />
+      <WeekdayCheckbox label="WED" name={prefix + "wednesday"} />
+      <WeekdayCheckbox label="THU" name={prefix + "thursday"} />
+      <WeekdayCheckbox label="FRI" name={prefix + "friday"} />
+      <WeekdayCheckbox label="SAT" name={prefix + "saturday"} />
+      <WeekdayCheckbox label="SUN" name={prefix + "sunday"} />
+    </Group>
+  );
 }
