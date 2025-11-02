@@ -245,6 +245,7 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
             value={set.completed_reps > 0 ? set.completed_reps : undefined}
             readOnly={!!set.completed_reps}
             placeholder={`${set.target_reps} Reps`}
+            style={{ flexBasis: "60px", flexShrink: 1, flexGrow: 1 }}
             required
           />
         )}
@@ -253,6 +254,7 @@ function SingleSetInput({ set, setIndex }: { set: ExerciseSet, setIndex: number 
             name="completedDurationSec"
             flex={4}
             min={0}
+            style={{ flexBasis: "60px", flexShrink: 1, flexGrow: 1 }}
             variant="filled"
             value={set.completed_reps > 0 ? set.completed_reps : undefined}
             readOnly={!!set.completed_reps}
@@ -281,7 +283,7 @@ export default function Workout({
   return (
     <PageWrapper>
       <Title order={2} mb="xl" style={{ textAlign: "left" }}>
-        Strength 1: Push
+        {loaderData.day_name}
       </Title>
 
 
