@@ -869,10 +869,72 @@ Note: Exercises with higher "score" values are more relevant to the user's goal.
 
 Create a personalized workout plan. Return ONLY valid JSON, no additional text."""
 
+        # Define JSON schema for structured outputs
+        workout_schema = {
+            "name": "workout_plan_schema",
+            "description": "Schema for AI-generated workout plans with mandatory 3+ exercises per day",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "workout_name": {
+                        "type": "string",
+                        "description": "Descriptive name for the workout plan"
+                    },
+                    "workout_plan": {
+                        "type": "array",
+                        "description": "Array of daily workout plans",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "day": {
+                                    "type": "string",
+                                    "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+                                    "description": "Day of the week"
+                                },
+                                "exercises": {
+                                    "type": "array",
+                                    "description": "MANDATORY: Must contain at least 3 exercises",
+                                    "minItems": 3,
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "exercise_id": {
+                                                "type": "string",
+                                                "description": "Exact exercise ID from provided list"
+                                            },
+                                            "reps": {
+                                                "type": ["integer", "null"],
+                                                "description": "Number of repetitions"
+                                            },
+                                            "weight": {
+                                                "type": ["integer", "null"],
+                                                "description": "Weight in kg"
+                                            },
+                                            "duration_sec": {
+                                                "type": ["integer", "null"],
+                                                "description": "Duration in seconds"
+                                            }
+                                        },
+                                        "required": ["exercise_id", "reps", "weight", "duration_sec"],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": ["day", "exercises"],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                "required": ["workout_name", "workout_plan"],
+                "additionalProperties": False
+            }
+        }
+        
         logger.info("="*60)
-        logger.info("STEP 5: Generating workout plan with LLM")
+        logger.info("STEP 5: Generating workout plan with LLM (using structured outputs)")
         logger.info("="*60)
-        logger.info("Calling OpenAI API to generate workout plan...")
+        logger.info("Calling OpenAI API to generate workout plan with schema enforcement...")
         try:
             response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -881,7 +943,10 @@ Create a personalized workout plan. Return ONLY valid JSON, no additional text."
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.7,
-                response_format={"type": "json_object"}
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": workout_schema
+                }
             )
             
             content = response.choices[0].message.content
