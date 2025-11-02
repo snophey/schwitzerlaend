@@ -3,6 +3,8 @@ import { Welcome } from "../welcome/welcome";
 import { TrainingsPlanItem } from "~/components/TrainingsPlanItem";
 import { getSession } from "~/sessions.server";
 import PageWrapper from "~/components/PageWrapper/PageWrapper";
+import { Button } from "@mantine/core";
+import { Link } from "react-router";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -127,6 +129,7 @@ export default function Home({ loaderData }: { loaderData: LoaderData }) {
             );
           }
         )}
+        <Button component={Link} size="lg" to={"/workout"} fullWidth>Start Training</Button>
       </div>
     </PageWrapper>
   );
