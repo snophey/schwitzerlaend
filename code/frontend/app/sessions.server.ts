@@ -17,7 +17,7 @@ const { getSession, commitSession, destroySession } =
 
       // all of these are optional
       httpOnly: true,
-      maxAge: 60,
+      maxAge: 34560000, // 400 days in seconds (max age of the cookie)
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
