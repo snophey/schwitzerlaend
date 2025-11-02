@@ -6,7 +6,8 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "gen-client": "openapi-generator-cli generate -i http://localhost:8000/openapi.json -g typescript-fetch -o app/api-client"
   },
   "dependencies": {
     "@mantine/charts": "^8.3.6",
@@ -25,6 +26,7 @@
     "recharts": "^3.3.0"
   },
   "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.25.0",
     "@react-router/dev": "^7.9.2",
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22",

@@ -85,3 +85,37 @@ This template comes with [Tailwind CSS](https://tailwindcss.com/) already config
 ---
 
 Built with ❤️ using React Router.
+
+## API Client
+
+To talk to the API server, we generate an API client based on the OpenAPI spec that is accessible at `/openapi.json` on the API server.
+Make sure that you can access an API server at localhost:8000 and then run:
+
+```
+npm run gen-client
+```
+
+The generated client will be placed in `app/api-client`.
+Example usage:
+
+```ts
+  const api = new HistoryApi(
+    new Configuration({
+      basePath: process.env.BACKEND_URL,
+    })
+  );
+
+  try {
+    const data = (await api.getLatestHistoryHistoryUserIdLatestGet({
+      userId,
+    })) as HistoryResponse;
+    return data;
+  } catch (error) {
+    if (error instanceof ResponseError && error.response.status === 404) {
+      // no workout found for user → redirect to onboarding
+      console.log("No workout found for user, redirecting to onboarding");
+      throw redirect("/onboarding");
+    }
+    throw new Response("Failed to load workout data", { status: 500 });
+  }
+```
