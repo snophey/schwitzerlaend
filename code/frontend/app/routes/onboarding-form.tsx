@@ -10,6 +10,7 @@ import {
   rem,
   Flex,
   Progress,
+  TextInput,
 } from "@mantine/core";
 import type { Route } from "./+types/onboarding-form";
 import NextButton from "~/components/NextButton";
@@ -99,6 +100,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function OnboardingForm() {
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [customSportName, setCustomSportName] = useState<string>("");
+
   const data = useActionData<{ error?: string; workout?: any }>();
   let [step, setStep] = useState(0);
 
@@ -120,159 +123,180 @@ export default function OnboardingForm() {
           transitionDuration={200}
           mb={"xl"}
         />
+
         <Stack align="stretch">
-          {/* --- Sport selection ---*/}
-          <Stack
-            align="center"
-            gap="md"
-            display={step === 0 ? "block" : "none"}
+          <Flex
+            justify="between"
+            direction="column"
+            style={{
+              minHeight: "600px",
+            }}
           >
-            <Title mb="lg" order={2}>
-              Let's start with your profile
-            </Title>
-            <Text size="sm">Which sport do you want to train?</Text>
-
-            <Cards onSelect={setSelectedSports} selected={selectedSports} />
-
-            <Textarea
-              style={{ textAlign: "center" }}
-              mt={"md"}
-              variant="filled"
-              label="Freitext"
-              name="injuries-specialties"
-              placeholder="Add your own sport"
-            />
-          </Stack>
-
-          {/* --- Training days ---*/}
-          <Stack
-            align="center"
-            gap="md"
-            display={step === 1 ? "block" : "none"}
-          >
-            <Title mb="lg" order={2}>
-              Your training sessions
-            </Title>
-            <Text size="sm">
-              How many training sessions would you like to have per week?
-            </Text>
-
-            {selectedSports.map((sport) => (
-              <Stack align="flex-start" gap="sm" key={sport}>
-                <Title order={3} size="sm" mt="lg">
-                  {sport.charAt(0).toUpperCase() + sport.slice(1)}
+            <div>
+              {/* --- Sport selection ---*/}
+              <Stack
+                align="center"
+                gap="md"
+                display={step === 0 ? "block" : "none"}
+              >
+                <Title mb="lg" order={2}>
+                  Let's start with your profile
                 </Title>
-                <WeekdaySelector prefix={`${sport.toLowerCase()}-`} />
-              </Stack>
-            ))}
+                <Text size="sm">Which sport do you want to train?</Text>
 
-            <Alert
-              variant="light"
-              color="red"
-              mt="lg"
-              style={{ textAlign: "left" }}
-              icon={<TbInfoSquare />}
-            >
-              Plan your training days with recovery in mind! If your muscles
-              feel tired or sore, give your body time to rest. Recovery is where
-              progress happens.
-            </Alert>
-          </Stack>
-
-          {/* --- Experience ---*/}
-          <Stack
-            align="center"
-            gap="md"
-            display={step === 2 ? "block" : "none"}
-          >
-            <Title order={2} mb={"lg"}>
-              Your skill level
-            </Title>
-            <Text size="sm" c="dimmed" ta="center">
-              How advanced are you? Briefly describe your current skill level in
-              your sport.
-            </Text>
-
-            {selectedSports.map((sport) => (
-              <Stack align="flex-start" gap="sm" w="100%" mt="xl" key={sport}>
-                <Title order={3} size="sm" mb="xs">
-                  {sport.charAt(0).toUpperCase() + sport.slice(1)}
-                </Title>
-                <SkateStrengthCards name="experience-skateboard" />
+                <Cards onSelect={setSelectedSports} selected={selectedSports} />
 
                 <Textarea
-                  w="100%"
+                  style={{ textAlign: "center" }}
+                  mt={"md"}
+                  rows={1}
                   variant="filled"
-                  name="experience-skateboard-details"
-                  placeholder="For example, how long you've been practicing, what techniques or skills you already master, and what skill challenges you"
-                  minRows={4}
+                  label="Your custom Sport"
+                  name="custom-sport"
+                  placeholder="Add your own sport"
+                  value={customSportName}
+                  onChange={(e) => setCustomSportName(e.currentTarget.value)}
                 />
               </Stack>
-            ))}
-          </Stack>
 
-          {/* --- Goal ---*/}
-          <Stack
-            align="center"
-            gap="md"
-            display={step === 3 ? "block" : "none"}
-          >
-            <Title order={2} mb={"lg"}>
-              Your goals
-            </Title>
-            <Text size="sm">What are the main goal of your training?</Text>
+              {/* --- Training days ---*/}
+              <Stack
+                align="center"
+                gap="md"
+                display={step === 1 ? "block" : "none"}
+              >
+                <Title mb="lg" order={2}>
+                  Your training sessions
+                </Title>
+                <Text size="sm">
+                  How many training sessions would you like to have per week?
+                </Text>
 
-            {selectedSports.map((sport) => (
-              <Textarea
-                key={sport}
-                style={{ textAlign: "left" }}
-                mt="md"
-                variant="filled"
-                name={`goals-${sport.toLowerCase()}`}
-                label={sport.charAt(0).toUpperCase() + sport.slice(1)}
-                placeholder={`Describe your goals for ${sport}`}
-              />
-            ))}
-          </Stack>
+                {selectedSports.map((sport) => (
+                  <Stack align="flex-start" gap="sm" key={sport}>
+                    <Title order={3} size="sm" mt="lg">
+                      {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    </Title>
+                    <WeekdaySelector prefix={`${sport.toLowerCase()}-`} />
+                  </Stack>
+                ))}
 
-          {/* --- Body condition ---*/}
-          <Stack
-            align="center"
-            gap="md"
-            display={step === 4 ? "block" : "none"}
-          >
-            <Title order={2} mb={"lg"}>
-              Anything we should know about your body
-            </Title>
-            <Text size="sm">
-              Your plan will adapt to keep you safe and progressing.
-            </Text>
-            <Textarea
-              style={{ textAlign: "left" }}
-              mt={"md"}
-              variant="filled"
-              label="Additional information"
-              name="injuries-specialties"
-              placeholder="Do you have any injuries or physical limitations we should be aware of?"
-            />
-          </Stack>
-          <Group justify="space-between" mt="auto" mb="md">
-            {step > 0 && step !== 5 && (
-              <Backbutton onClick={() => setStep(step - 1)} text="Back" />
-            )}
-            {step < 4 && (
-              <NextButton
-                style={{
-                  marginLeft: "auto",
-                }}
-                onClick={() => setStep(step + 1)}
-                text="Next"
-              />
-            )}
-            {step === 4 && (
-              <NextButton type="submit" onClick={() => {}} text="Begin" />
-            )}
-          </Group>
+                <Alert
+                  variant="light"
+                  color="red"
+                  mt="lg"
+                  style={{ textAlign: "left" }}
+                  icon={<TbInfoSquare />}
+                >
+                  Plan your training days with recovery in mind! If your muscles
+                  feel tired or sore, give your body time to rest. Recovery is
+                  where progress happens.
+                </Alert>
+              </Stack>
+
+              {/* --- Experience ---*/}
+              <Stack
+                align="center"
+                gap="md"
+                display={step === 2 ? "block" : "none"}
+              >
+                <Title order={2} mb={"lg"}>
+                  Your skill level
+                </Title>
+                <Text size="sm" c="dimmed" ta="center">
+                  How advanced are you? Briefly describe your current skill
+                  level in your sport.
+                </Text>
+
+                {selectedSports.map((sport) => (
+                  <Stack
+                    align="flex-start"
+                    gap="sm"
+                    w="100%"
+                    mt="xl"
+                    key={sport}
+                  >
+                    <Title order={3} size="sm" mb="xs">
+                      {sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    </Title>
+                    <SkateStrengthCards name="experience-skateboard" />
+
+                    <Textarea
+                      w="100%"
+                      variant="filled"
+                      name="experience-skateboard-details"
+                      placeholder="For example, how long you've been practicing, what techniques or skills you already master, and what skill challenges you"
+                      minRows={4}
+                    />
+                  </Stack>
+                ))}
+              </Stack>
+
+              {/* --- Goal ---*/}
+              <Stack
+                align="center"
+                gap="md"
+                display={step === 3 ? "block" : "none"}
+              >
+                <Title order={2} mb={"lg"}>
+                  Your goals
+                </Title>
+                <Text size="sm">What are the main goal of your training?</Text>
+
+                {selectedSports.map((sport) => (
+                  <Textarea
+                    key={sport}
+                    style={{ textAlign: "left" }}
+                    mt="md"
+                    variant="filled"
+                    name={`goals-${sport.toLowerCase()}`}
+                    label={sport.charAt(0).toUpperCase() + sport.slice(1)}
+                    placeholder={`Describe your goals for ${sport}`}
+                  />
+                ))}
+              </Stack>
+
+              {/* --- Body condition ---*/}
+              <Stack
+                align="center"
+                gap="md"
+                display={step === 4 ? "block" : "none"}
+              >
+                <Title order={2} mb={"lg"}>
+                  Anything we should know about your body
+                </Title>
+                <Text size="sm">
+                  Your plan will adapt to keep you safe and progressing.
+                </Text>
+                <Textarea
+                  style={{ textAlign: "left" }}
+                  mt={"md"}
+                  variant="filled"
+                  label="Additional information"
+                  name="injuries-specialties"
+                  placeholder="Do you have any injuries or physical limitations we should be aware of?"
+                />
+              </Stack>
+            </div>
+
+            <Group justify="space-between" mt="auto" mb="md">
+              {step > 0 && step !== 5 && (
+                <Backbutton onClick={() => setStep(step - 1)} text="Back" />
+              )}
+              {step < 4 && (
+                <NextButton
+                  style={{
+                    marginLeft: "auto",
+                  }}
+                  onClick={() => setStep(step + 1)}
+                  text="Next"
+                />
+              )}
+              {step === 4 && (
+                <NextButton type="submit" onClick={() => {}} text="Begin" />
+              )}
+            </Group>
+          </Flex>
 
           {/* --- Loading screen ---*/}
           <Stack
