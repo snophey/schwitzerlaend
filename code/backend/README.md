@@ -91,6 +91,32 @@ Once the server is running, you can access:
 
 The application can be deployed using Docker for a consistent, isolated environment.
 
+### Development: MongoDB Only
+
+For local development, you can run only MongoDB in Docker and run the FastAPI backend locally:
+
+```bash
+# Start only MongoDB
+docker compose -f docker-compose.dev.yml up -d
+
+# MongoDB will be available at localhost:27017
+# Update your .env file:
+# MONGODB_URI=mongodb://localhost:27017/
+# USE_LOCAL_MONGODB=true
+
+# Then run the backend locally
+uvicorn main:app --reload
+```
+
+To stop MongoDB:
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+### Full Stack: MongoDB + Backend
+
+For running both MongoDB and the backend in Docker:
+
 ### Prerequisites for Docker
 
 - Docker Desktop installed and running

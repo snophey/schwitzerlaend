@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=schwitzerland
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -10,7 +29,23 @@ services:
       - 8000:8000
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/}
+      - DATABASE_NAME=${DATABASE_NAME:-schwitzerland}
+      - USE_LOCAL_MONGODB=${USE_LOCAL_MONGODB:-true}
     restart: unless-stopped
     volumes:
       - ./secrets:/app/secrets:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  mongodb_config:
 

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import logging
 
 # Import database connection
-from database import connect_to_mongodb, db as database_db, client as database_client
+from database import connect_to_mongodb
 import database
 
 # Import routers
@@ -30,8 +30,20 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up FastAPI application...")
     client, db = connect_to_mongodb()
     if db is None:
-        logger.error("Failed to connect to MongoDB on startup - raising exception")
-        raise Exception("Failed to connect to MongoDB on startup")
+        logger.error("="*60)
+        logger.error("Failed to connect to MongoDB on startup!")
+        logger.error("="*60)
+        logger.error("Troubleshooting steps:")
+        logger.error("1. Check if MongoDB is running")
+        logger.error("2. Verify MONGODB_URI in .env file")
+        logger.error("3. For local dev: mongodb://localhost:27017/")
+        logger.error("4. Start MongoDB: docker compose -f docker-compose.dev.yml up -d")
+        logger.error("="*60)
+        raise Exception(
+            "Failed to connect to MongoDB on startup. "
+            "Please check the logs above for troubleshooting steps. "
+            "Make sure MongoDB is running and the connection string is correct."
+        )
     
     # Set global database references
     database.db = db
